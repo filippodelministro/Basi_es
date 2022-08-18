@@ -64,3 +64,22 @@ group by P.CodFiscale, M.Specializzazione
 --*==================================================================================
 --*									ES IN FONDO												
 --*==================================================================================
+
+--?1. Indicare le specializzazioni che hanno solo medici della stessa città. [Risolvere con e
+--?senza subquery].
+select M.Specializzazione
+from Medico M
+group by M.Specializzazione
+having count(distinct M.Citta) = 1;
+
+--?2. Considerando pazienti della stessa città, indicare il numero di medici di città diversa
+--?dalla loro, dai quali sono stati visitati.
+select P.Citta, count(distinct V.Medico) as MediciDiversi
+from Paziente P inner join Visita V on P.CodFiscale = V.Paziente
+				inner join Medico M on M.Matricola = V.Medico
+where P.Citta <> M.Citta
+group by P.Citta
+
+--?3. Indicare la specializzazione più redditizia per la clinica, e il medico che con le sue
+--?visite ha contribuito maggiormente agli incassi realizzati da tale specializzazione, nel
+--?corso degli ultimi dieci anni. In caso di pari merito, restituire tutti gli ex aequo.
