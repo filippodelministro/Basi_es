@@ -70,3 +70,74 @@ having count(distinct V.Medico) = (
 	where M.Citta = 'Pisa'
 		and M.Specializzazione = 'Cardiologia'
 )
+
+
+--?Selezionare nome e cognome dei medici la cui parcella è superiore 
+--?alla media delle parcelle della loro specializzazione e che, 
+--?nell'anno 2011, hanno visitato almeno un paziente che non avevano 
+--?mai visitato prima
+
+
+with 
+MediaParcSpec as (
+		select M.Specializzazione, avg(M.Parcella) as Media
+		from Medico M inner join Visita V on M.Matricola = V.Medico
+		group by M.Specializzazione
+),
+MediciTarget1 as (
+		select M.Matricola
+		from Medico M inner join MediaParcSpec MPS on M.Specializzazione = MPS. Specializzazione 
+												  and M.Parcella > MPS.Media  
+),
+--conta tutti i paziente, 2011 escluso
+NumPazPrima as (
+		select V.Medico, count(distinct V.Paziente) as NumPaz
+		from Visita V
+		where year(V.Data) < 2011
+		group by V.Medico
+),
+--conta tutti i paziente, 2011 compreso
+NumPazDopo as (
+		select V.Medico, count(distinct V.Paziente) as NumPaz
+		from Visita V
+		where year(V.Data) <= 2011
+		group by V.Medico
+),
+MediciTarget2 as (
+		select NPP.Medico
+		from NumPazPrima NPP inner join NumPazDopo NPD on NPP.Medico = NPD.Medico
+													   and NPD.NumPaz > NPP.NumPaz
+)
+
+select M.Nome, M.Cognome
+from MediciTarget1 MT1 inner join MediciTarget2 MT2 on MT1.Matricola = MT2.Medico
+					   inner join Medico M on MT2.Medico = M.Matricola
+
+
+
+--?scrivere una query che restituisca nome e cognome del medico che, 
+--?al 31/12/2014, aveva visitato un numero di pazienti superiore a quelli 
+--?visitati da ciascun medico della sua specializzazione
+-- numero di pazienti per ogni medico: salvo anche la spec per fare join dopo (nel periodo target)
+with VisiteMed as (
+		select V.Medico, M.Specializzazione, count(distinct V.Paziente) as NumPaz
+		from Medico M inner join Visita V on M.Matricola = V.Medico
+		where year(V.Data) < 2015
+		group by V.Medico
+)
+-- per ogni spec, proietto i medici che hanno un NumPaz maggiore di tutti i medici della stessa spec
+select VM1.Medico, M.Nome, M.Cognome, M.Specializzazione, VM1.NumPaz
+from VisiteMed VM1 inner join Medico M on VM1.Medico = M.Matricola
+group by VM1.Medico, VM1.Specializzazione, VM1.NumPaz
+having VM1.NumPaz > ALL(
+		select VM.NumPaz 
+		from VisiteMed VM
+		where VM.Specializzazione = VM1.Specializzazione
+			and VM.Medico <> VM1.Medico
+)
+
+--?Scrivere una query che restituisca il codice fiscale dei pazienti che 
+--?sono stati visitati sempre dal medico avente la parcella più alta, in 
+--?tutte le specializzazioni. Se, anche per una sola specializzazione, non 
+--?vi è un unico medico avente la parcella più alta, la query non deve 
+--?restituire alcun risultato.
