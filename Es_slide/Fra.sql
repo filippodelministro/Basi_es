@@ -141,3 +141,38 @@ having VM1.NumPaz > ALL(
 --?tutte le specializzazioni. Se, anche per una sola specializzazione, non 
 --?vi è un unico medico avente la parcella più alta, la query non deve 
 --?restituire alcun risultato.
+
+
+with MediciCostosi as (
+		select D.Specializzazione, D.Matricola
+        from (
+				select M1.Matricola, M1.Specializzazione, M1.Parcella
+				from Medico M1
+				group by M1.Matricola, M1.Specializzazione, M1.Parcella
+				having M1.Parcella >= ALL (		-- parcella più alta per ogni spec
+						select Parcella M
+						from Medico M
+						where M.Specializzazione = M1.Specializzazione
+				)
+        ) as D
+        group by D.Specializzazione, D.Matricola, D.Parcella
+        having count(distinct D.Matricola) = 1	-- si può avere al massimo un medico con 
+												-- parcella più alta per ogni spec
+)
+
+select D.Paziente
+from Paziente P inner join (
+		select V.Paziente, M.Specializzazione
+		from Visita V inner join Medico M on M.Matricola = V.Medico
+		where V.Paziente NOT IN (	-- escludo pazienti che hanno visite con medici NON target
+				select distinct V.Paziente
+				from Visita V left outer join MediciCostosi MC on V.Medico = MC.Matricola
+				where MC.Matricola is null
+		)
+		group by V.Paziente, M.Specializzazione
+		having count(distinct M.Specializzazione) = (				-- ogni paziente deve avere una visita con 
+				select count(distinct M1.Specializzazione)			-- almeno un medico per ogni spec
+				from Medico M1
+		)
+) as D on P.CodFiscale = D.Paziente
+
