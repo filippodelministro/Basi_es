@@ -91,3 +91,4 @@ where M.Nome = 'Mario'
 	and M.Cognome = 'Rossi'
 group by V.Paziente
 having count(*) >= 2;
+

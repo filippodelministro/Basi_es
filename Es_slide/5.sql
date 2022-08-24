@@ -158,3 +158,5 @@ where P.CodFiscale IN (
 )
 	and P.DataNascita < current_date() - interval 18 year
 
+
+

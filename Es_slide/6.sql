@@ -215,3 +215,5 @@ where M.Parcella <= ALL (       --con parimerito!
 		select M1.Parcella
         from Medico M1
 )
+
+

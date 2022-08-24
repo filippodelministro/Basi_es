@@ -12,3 +12,5 @@ from Medico M natural join (
         group by M1.Specializzazione 
 )as D
 where M.Parcella = D.ParcellaMinima
+
+
