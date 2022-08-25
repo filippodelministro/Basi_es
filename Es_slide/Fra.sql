@@ -142,7 +142,6 @@ having VM1.NumPaz > ALL(
 --?vi è un unico medico avente la parcella più alta, la query non deve 
 --?restituire alcun risultato.
 
-
 with MediciCostosi as (
 		select D.Specializzazione, D.Matricola
         from (
