@@ -45,8 +45,6 @@ where Nome not in (
 --?oggetto di terapie effettuate nel triennio 2008-2010 per curare patologie contratte 
 --?per la prima volta nello stesso periodo. Al costo dei farmaci sottrarre la 
 --?percentuale di esenzione, ove prevista.
---todo: manca condizione sull'esenzione
- 
 select D.SettoreMedico, sum(Costo) as CostoTot
 from (
 		select P.SettoreMedico, sum(F.Costo * ((F.Pezzi % T.Posologia) + 1)) as Costo
