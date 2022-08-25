@@ -30,7 +30,7 @@ having count(distinct E.Patologia) = (	-- aventi tutte le patologie dell'intesti
 --? con il farmaco Lyrica.
 select T.Patologia
 from Terapia T
-where T.Farmaco = 'Lyrica'
+where  T.Farmaco = 'Lyrica'
     and T.Patologia not in (
 		select Patologia
 		from Esordio
