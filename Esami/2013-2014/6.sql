@@ -55,15 +55,65 @@ OR
 );
 
 
-Esercizio 3 (6 punti)
-Indicare il reddito massimo fra quelli di tutti i pazienti che, nell’anno 2011, hanno effettuato esat-
-tamente tre visite, ognuna delle quali con un medico avente specializzazione diversa dagli altri.
-Esercizio 4 (7 punti)
-Creare un vincolo di integrità generico (mediante un trigger) per impedire che un medico possa vi-
-sitare mensilmente più di due volte lo stesso paziente, qualora all’atto delle due visite già effettuate
-in un dato mese dal medico sul paziente, quest’ultimo non fosse affetto da alcuna patologia.
-Esercizio 5 (8 punti)
-Considerato ciascun farmaco per la cura di patologie gastroenterologiche, indicato per più di una
-patologia, ma di fatto assunto per curare un’unica patologia per oltre l’80% delle terapie basate su
-di esso iniziate negli ultimi dieci anni, mantenere nella tabella I NDICAZIONE la sola indicazione del
-farmaco considerato riguardante tale unica patologia, eliminando tutte le altre.
+--? Indicare il reddito massimo fra quelli di tutti i pazienti che, nell’
+--? anno 2011, hanno effettuato esattamente tre visite, ognuna delle quali 
+--? con un medico avente specializzazione diversa dagli altri.
+select max(D.Reddito) as RedditoMax
+from (
+		select V.Paziente, P.Reddito
+		from Visita V inner join Medico M on V.Medico = M.Matricola
+					  inner join Paziente P on P.CodFiscale = V.Paziente
+		where year(V.Data) = 2011
+		group by V.Paziente
+		having count(*) = 3
+			and count(distinct M.Specializzazione) = 3
+) as D
+
+
+--todo: ======================================================================
+--? Creare un vincolo di integrità generico (mediante un trigger) per impedire 
+--? che un medico possa visitare mensilmente più di due volte lo stesso 
+--? paziente, qualora all’atto delle due visite già effettuate in un dato 
+--? mese dal medico sul paziente, quest’ultimo non fosse affetto da alcuna 
+--? patologia.
+--todo: ======================================================================
+
+
+--? Considerato ciascun farmaco per la cura di patologie gastroenterologiche,
+--? indicato per più di una patologia, ma di fatto assunto per curare un’unica
+--? patologia per oltre l’60% delle terapie basate su di esso iniziate negli 
+--? ultimi dieci anni, mantenere nella tabella INDICAZIONE la sola indicazione
+--? del farmaco considerato riguardante tale unica patologia, eliminando 
+--? tutte le altre.
+with
+UtilizziTot as (
+		select T.Farmaco, count(*) as NumUtilizzi
+		from Terapia T
+		where T.DataInizioTerapia > current_date() - interval 100 year
+			and T.Farmaco in (	-- Farmaci indicati per più patologie
+				select I.Farmaco
+				from Indicazione I inner join Patologia P on I.Patologia = P.Nome
+				where P.SettoreMedico = 'Gastroenterologia'
+				group by I.Farmaco	
+				having count(distinct I.Patologia) > 1	
+			)
+		group by T.Farmaco
+),
+UtilizziPat as (
+		select T.Farmaco, T.Patologia, count(*) as NumUtilizzi
+		from Terapia T
+		where T.DataInizioTerapia > current_date() - interval 100 year
+			and T.Farmaco in (	-- Farmaci indicati per più patologie
+				select I.Farmaco
+				from Indicazione I inner join Patologia P on I.Patologia = P.Nome
+				where P.SettoreMedico = 'Gastroenterologia'
+				group by I.Farmaco	
+				having count(distinct I.Patologia) > 1	
+			)
+		group by T.Farmaco, T.Patologia
+)
+
+select I.*
+from UtilizziTot UT inner join UtilizziPat UP on UT.Farmaco = UP.Farmaco
+					inner join Indicazione I on UP.Patologia = I.Patologia
+where UP.NumUtilizzi >= 0.6 * UT.NumUtilizzi
