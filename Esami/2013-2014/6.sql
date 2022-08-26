@@ -81,8 +81,8 @@ from (
 
 --? Considerato ciascun farmaco per la cura di patologie gastroenterologiche,
 --? indicato per più di una patologia, ma di fatto assunto per curare un’unica
---? patologia per oltre l’60% delle terapie basate su di esso iniziate negli 
---? ultimi dieci anni, mantenere nella tabella INDICAZIONE la sola indicazione
+--? patologia per oltre il 60% delle terapie basate su di esso iniziate negli 
+--? ultimi cento anni, mantenere nella tabella INDICAZIONE la sola indicazione
 --? del farmaco considerato riguardante tale unica patologia, eliminando 
 --? tutte le altre.
 with
