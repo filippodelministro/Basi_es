@@ -28,7 +28,7 @@ from (
 		having count(distinct V1.Data) > 1
 ) as D
 
-
+--todo: ======================================================================
 --? Creare una business rule che permetta di inserire un nuovo farmaco F e le
 --? relative indicazioni, qualora non vi siano già più di due farmaci di cui
 --? almeno uno basato sullo stesso principio attivo, aventi, ciascuno, un’
@@ -42,9 +42,10 @@ from (
 --? nel frattempo, alcuna terapia per la cura di patologie inerenti tale
 --? specializzazione. In generale, dopo una visita iniziale, un paziente può
 --? effettuare più visite di accertamento, posticipando ulteriormente l’inizio
---? della terapia. Creare una materialized view A CCERTAMENTO contenente codice
+--? della terapia. Creare una materialized view ACCERTAMENTO contenente codice
 --? fiscale, nome e cognome dei pazienti che, nell’ultimo trimestre,
 --? relativamente ad almeno una visita iniziale, hanno effettuato una o più 
 --? visite di accertamento, quante ne hanno effettuate per ogni visita iniziale,
 --? e il cognome del medico che ha effettuato tale visita iniziale.
 --? Gestire la materialized view mediante deferred refresh con cadenza trimestrale.
+--todo: ======================================================================
