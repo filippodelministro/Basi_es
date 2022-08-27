@@ -65,12 +65,16 @@ where P.DataNascita + interval 40 year > current_date()
 		)
 group by E.Patologia
 
-
-Scrivere una stored procedure che, ricevuto in ingresso il codice fiscale di un paziente e il nome di un prin-
-cipio attivo, blocchi immediatamente tutte le terapie attualmente in corso, impostando la data di fine terapia
-alla data corrente, qualora si stiano protraendo per oltre una settimana, e il paziente abbia già effettuato in
-precedenza, comunque non oltre sei mesi prima, almeno tre terapie con lo stesso farmaco o con un farmaco
-contenente lo stesso principio attivo, di cui almeno una con posologia superiore a tre compresse al giorno.
-Al termine delle elaborazioni, la procedura deve restituire, nonché mostrare a video, un resoconto conte-
-nente le seguenti informazioni sulle terapie bloccate: codice fiscale del paziente, farmaco, durata della tera-
-pia interrotta, posologia, numero di terapie precedenti con posologia superiore a tre compresse al giorno.
+--todo: ======================================================================
+--? Scrivere una stored procedure che, ricevuto in ingresso il codice fiscale di un 
+--? paziente e il nome di un principio attivo, blocchi immediatamente tutte le terapie
+--? attualmente in corso, impostando la data di fine terapia alla data corrente,
+--? qualora si stiano protraendo per oltre una settimana, e il paziente abbia già 
+--? effettuato inprecedenza, comunque non oltre sei mesi prima, almeno tre terapie con
+--? lo stesso farmaco o con un farmaco contenente lo stesso principio attivo, di cui 
+--? almeno una con posologia superiore a tre compresse al giorno. Al termine delle 
+--? elaborazioni, la procedura deve restituire, nonché mostrare a video, un resoconto
+--? contenente le seguenti informazioni sulle terapie bloccate: codice fiscale del
+--? paziente, farmaco, durata della terapia interrotta, posologia, numero di terapie
+--? precedenti con posologia superiore a tre compresse al giorno.
+--todo: ======================================================================
