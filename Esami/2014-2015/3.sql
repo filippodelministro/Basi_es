@@ -32,13 +32,14 @@ having count(distinct T.Farmaco) = (
 )
 
 
-
 --todo: ======================================================================
-Scrivere una function che, ricevuto in ingresso il codice fiscale di un paziente, restituisca il suo stato attuale
-di salute SS ottenuto mediante l’espressione ...
-dove n è il numero di esordi attualmente in corso, g i è la gravità con cui la patologia è stata contratta
-nell’esordio i-esimo, e w i è un coefficiente di penalizzazione pari a: 1 se l’esordio i-esimo non ha terapie
-fallite; 1.5 se l’esordio i-esimo ha da 1 a 2 terapie fallite; 2.5 se l’esordio i-esimo ha più di 3 terapie fallite.
+--? Scrivere una function che, ricevuto in ingresso il codice fiscale di un paziente,
+--? restituisca il suo stato attuale di salute SS ottenuto mediante l’espressione ...
+--? dove n è il numero di esordi attualmente in corso, g i è la gravità con cui la
+--? patologia è stata contratta nell’esordio i-esimo, e w i è un coefficiente di
+--? penalizzazione pari a: 1 se l’esordio i-esimo non ha terapie fallite; 1.5 se 
+--? l’esordio i-esimo ha da 1 a 2 terapie fallite; 2.5 se l’esordio i-esimo ha più 
+--? di 3 terapie fallite.
 
 
 --? Scrivere una query che restituisca l’anno (o gli anni) in cui si sono verificati,

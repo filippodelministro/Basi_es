@@ -209,3 +209,23 @@ delimiter ;
 
 --? Scrivere una stored procedure che restituisca la posizione in classifica nel mese in
 --? corso di un medico, passato come parametro, sfruttando la function rank()
+drop procedure if exists proc;
+delimiter $$
+
+create procedure proc(in _matricola varchar(255),
+					  out ranku varchar(6)
+)
+begin
+	declare NumVisite int default 0;
+    
+    select count(*) into NumVisite
+    from Visita V
+    where V.Medico = _matricola
+		-- and year(V.Data) = year(current_date())
+        and month(V.Data) = month(current_date()) - 3;
+        
+	select rank_(NumVisite) into ranku;
+end $$
+delimiter ;
+
+
