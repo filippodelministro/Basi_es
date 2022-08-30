@@ -8,6 +8,7 @@ Argomenti:
     - Cursori
     - Handler (continue, exit)
     - Stored function
+    - Temporary Table
     - concat()
 
 
@@ -229,3 +230,31 @@ end $$
 delimiter ;
 
 
+--? Scrivere una stored procedure che produca una classifica di tutti i medici della
+--? clinica sfruttando la function rank()
+--! In questo caso deve restituire un result set, non solo stampare: usiamo una Temporary Table
+
+delimiter $$
+drop procedure if exists proc;
+create procedure proc()
+
+begin
+		create temporary table if not exists _classifica(
+				Medico varchar(100) not null,
+				Ranking varchar(10) not null,
+				primary key (Medico)
+		) engine = InnoDB default charset = latin1;
+
+		truncate table _classifica;		-- la resetta
+	
+		insert into _classifica
+			select V.Medico, rank(count(*)) as ranking
+            from Visita V
+            where month(V.Data) = month(current_date())
+				and year(V.Data) = year(current_date())
+			group by V.Medico
+end $$
+delimiter ;
+
+call proc();
+select * from _classifica;
