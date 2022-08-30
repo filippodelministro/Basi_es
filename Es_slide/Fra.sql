@@ -175,3 +175,24 @@ from Paziente P inner join (
 		)
 ) as D on P.CodFiscale = D.Paziente
 
+
+--*==================================================================================
+--*								ES PIÙ COMPLESSI										
+--*==================================================================================
+--? Al termine di Febbraio 2015, come ogni anno, le parcelle dei medici della
+--? clinica saranno aggiornate. La percentuale di aumento della parcella è pari alle
+--? percentuale di terapie prescritte dal medico nel 2014 che hanno condotto il 
+--? paziente alla guarigione, rispetto a tutte le terapie da egli/ella prescritte
+--? nello stesso anno. Assumere che il medico che prescrive una terapia a un paziente
+--? sia il medico, la cui specializzazione è uguale al settore medico della patologia
+--? oggetto della terapia, dal quale il paziente è stato visitato da meno tempo prima 
+--? dell'inizio della terapia stessa. Scrivere una stored procedure aggiorna_parcelle 
+--? che prenda come argomento un anno (in questo caso il 2014) e aggiorni, come descritto,
+--? la parcella di tutti i medici
+
+
+
+--? Scrivere una stored procedure report_spese che riceve in ingresso 3 parametri:
+--? il codice fiscale di un paziente i, il nome di un settore medico s e un parametro
+--? booleano (tinyint) ssn. La stored procedure deve restiturire la spesa totale e
+--? media giornaliera sostenuta attualmente dal paziente p per le terapie

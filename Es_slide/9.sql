@@ -1,6 +1,5 @@
 Argomenti:
     - Trigger (before & after)
-    - Alter Table
     - Business rule (gestiti da trigger)
     - Event (normali o recurring)
         · set global event_scheduler = on;
