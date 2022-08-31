@@ -190,9 +190,122 @@ from Paziente P inner join (
 --? che prenda come argomento un anno (in questo caso il 2014) e aggiorni, come descritto,
 --? la parcella di tutti i medici
 
+delimiter $$
+drop procedure if exists proc;
+create procedure proc(
+		in _anno integer default 0
+)
+begin
+
+	with
+	VisitaVicina as (
+			select T.Paziente, T.Patologia, T.DataInizioTerapia, T.Farmaco, T.DataEsordio, MAX(V.Data) as VisitaVicina
+			from Terapia T inner join Patologia P on T.Patologia=P.Nome 
+						   inner join Visita V on  T.Paziente=V.Paziente 
+						   inner join Medico M on V.Medico=M.Matricola and M.Specializzazione=P.SettoreMedico
+			where datediff(T.DataInizioTerapia,V.Data)>0
+			group by T.Paziente, T.Patologia, T.DataInizioTerapia, T.Farmaco, T.DataEsordio
+	),
+	VisTotMedico as (
+			select M1.Matricola, M1.Parcella, count(*) as VisiteTotaliMedico
+			from Terapia T1 inner join Patologia P1 on T1.Patologia=P1.Nome 
+					inner join Visita V1 on  T1.Paziente= V1.Paziente 
+					inner join Medico M1 on V1.Medico=M1.Matricola and M1.Specializzazione=P1.SettoreMedico
+					inner join VisitaVicina VV on T1.Paziente=VV.Paziente 
+											   and T1.Patologia=VV.Patologia
+											   and T1.DataInizioTerapia=VV.DataInizioTerapia
+											   and T1.Farmaco=VV.Farmaco
+											   and T1.DataEsordio = VV.DataEsordio
+			where datediff(T1.DataInizioTerapia,V1.Data) > 0
+			and V1.Data=VV.VisitaVicina
+			and year(T1.DataInizioTerapia) = _anno
+			group by M1.Matricola
+	),
+	VisCompleteMedico as(
+			select M1.Matricola, M1.Parcella, count(*) as VisiteFinite
+			from Terapia T1 inner join Patologia P1 on T1.Patologia=P1.Nome 
+					inner join Visita V1 on  T1.Paziente= V1.Paziente 
+					inner join Medico M1 on V1.Medico=M1.Matricola and M1.Specializzazione=P1.SettoreMedico
+					inner join VisitaVicina VV on T1.Paziente=VV.Paziente 
+					and T1.Patologia=VV.Patologia and T1.DataInizioTerapia=VV.DataInizioTerapia and T1.Farmaco=VV.Farmaco and T1.DataEsordio = VV.DataEsordio
+			where DATEDIFF(T1.DataInizioTerapia,V1.Data)>0
+			and V1.Data=VV.VisitaVicina
+			and year(T1.DataInizioTerapia)= _anno
+			and T1.DataFineTerapia is not null
+			group by M1.Matricola
+	)
+
+	update Medico M
+	set M.Parcella = M.Parcella + M.Parcella * (
+		select ((VC.VisiteFinite)/(VT.VisiteTotaliMedico))*100 
+		from VisTotMedico VT natural join VisCompleteMedico VC
+		where VT.Matricola = M.Matricola
+	);
+
+end $$
+delimiter ;
 
 
---? Scrivere una stored procedure report_spese che riceve in ingresso 3 parametri:
---? il codice fiscale di un paziente i, il nome di un settore medico s e un parametro
---? booleano (tinyint) ssn. La stored procedure deve restiturire la spesa totale e
---? media giornaliera sostenuta attualmente dal paziente p per le terapie
+--? Scrivere una stored procedure report_spese che riceve in ingresso 3 parametri: il codice
+--? fiscale di un paziente i, il nome di un settore medico s e un parametro booleano (tinyint)
+--? sn. La stored procedure deve restiturire la spesa totale e media giornaliera sostenuta
+--? attualmente dal paziente p per le terapie in corso del settore medico s. Le spese sopra
+--? descritte sono calcolate in modo diverso dipendentemente dal valore di ssn. In particolare,
+--? se ssn = 1 la stored procedure restituisce le varie spese al netto della percentuale di 
+--? esenzione, ove prevista, altrimenti l'esenzione è ignorata. Alla percentuale di esenzione
+--? associata alla patologia j, deve essere sommato un coefficiente Pi,s dipendente dal
+--? reddito Ri del paziente e dal numero di patologie croniche Ci,s attinenti al settore 
+--? medico s, da cui è affetto il paziente i, secondo la seguente espressione:
+--? 		Pi,s=Ci,s/(0.01*Ri)
+-- manca parte del coefficente
+delimiter $$
+drop procedure if exists proc;
+create procedure  proc(
+	in _cod_fiscale varchar(100),
+    in _settoremed varchar(100)
+    in _sn tinyint
+)
+
+begin
+
+	if (_sn = false) then
+		select if((((datediff(current_date, T.DataInizioTerapia) * T.Posologia) % F.Pezzi) <> 0),
+				floor((((datediff(current_date, T.DataInizioTerapia) * T.Posologia) / F.Pezzi)) + 1),
+					((datediff(current_date, T.DataInizioTerapia) * T.Posologia) / F.Pezzi)
+                    ) * F.Costo * (100 - PA.PercEsenzione) / 100 as CostoTotEsenz,
+				(if((((datediff(current_date, T.DataInizioTerapia) * T.Posologia) % F.Pezzi) <> 0),
+				floor((((datediff(current_date, T.DataInizioTerapia) * T.Posologia) / F.Pezzi)) + 1),
+					((datediff(current_date, T.DataInizioTerapia) * T.Posologia) / F.Pezzi)
+                    ) * F.Costo ) * ((100 - PA.PercEsenzione)/100) / (datediff(current_date, T.DataInizioTerapia)) as MediaGiornalieraEsenz
+		from Terapia T inner join Patologia PA on T.Patologia = PA.Nome 
+					   inner join Farmaco F on T.Farmaco = F.NomeCommerciale
+		where T.Paziente = _cod_fiscale
+			and PA.SettoreMedico = _settoremed
+	
+    else
+		select if((((datediff(current_date, T.DataInizioTerapia) * T.Posologia) % F.Pezzi) <> 0),
+				floor((((datediff(current_date, T.DataInizioTerapia) * T.Posologia) / F.Pezzi)) + 1),
+					((datediff(current_date, T.DataInizioTerapia) * T.Posologia) / F.Pezzi)
+                    ) * F.Costo * (100 - PA.PercEsenzione) / 100 as CostoTotEsenz,
+				(if((((datediff(current_date, T.DataInizioTerapia) * T.Posologia) % F.Pezzi) <> 0),
+				floor((((datediff(current_date, T.DataInizioTerapia) * T.Posologia) / F.Pezzi)) + 1),
+					((datediff(current_date, T.DataInizioTerapia) * T.Posologia) / F.Pezzi)
+                    ) * F.Costo ) * ((100 - PA.PercEsenzione)/100) / (datediff(current_date, T.DataInizioTerapia)) as MediaGiornalieraEsenz
+		from Terapia T inner join Patologia PA on T.Patologia = PA.Nome 
+					   inner join Farmaco F on T.Farmaco = F.NomeCommerciale
+		where T.Paziente = _cod_fiscale
+			and PA.SettoreMedico = _settoremed
+    end if
+end $$
+delimiter ;
+
+--? Scrivere un function che, ricevuto in ingreso il codice fiscale di un paziente,
+--? restituisca il suo stato attuale di salute SS ottenuto mediante l'espressione
+--? 			SS = n (SUM(w_i*g_i))^-1
+--? dove:
+--? 	· n		: numero di esordi attualmente in corso
+--? 	· g_i 	: gravita conn cui la patologia è stata contratta nell'esordio i-Suggerimento
+--? 	· w_i	: coeff di penalizzazione che vale
+--? 		- 1 se l'esorido i-simo non ha terapie fallite
+--? 		- 1,5 se l'esorido i-simo ha tra 1 e 2 terapie fallite
+--? 		- 2,5 se l'esorido i-simo ha più di tre terapie fallite
