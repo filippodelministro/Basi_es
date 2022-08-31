@@ -304,8 +304,51 @@ delimiter ;
 --? 			SS = n (SUM(w_i*g_i))^-1
 --? dove:
 --? 	· n		: numero di esordi attualmente in corso
---? 	· g_i 	: gravita conn cui la patologia è stata contratta nell'esordio i-Suggerimento
+--? 	· g_i 	: gravita conn cui la patologia è stata contratta nell'esordio i-simo
 --? 	· w_i	: coeff di penalizzazione che vale
 --? 		- 1 se l'esorido i-simo non ha terapie fallite
 --? 		- 1,5 se l'esorido i-simo ha tra 1 e 2 terapie fallite
 --? 		- 2,5 se l'esorido i-simo ha più di tre terapie fallite
+drop function if exists fun1;	-- funzione ausiliaria: calcola coefficente w_i
+delimiter $$
+create function fun1(_nesordi int)
+returns int deterministic
+begin
+	declare ret int default 0;
+    
+    if (_nesordi = 0) then
+		set ret = 1;
+	elseif (_nesordi between 1 and 2) then
+		set ret = 1.5;
+	else set ret = 2.5;
+    end if;
+    
+    return ret;
+end $$
+delimiter ;
+
+drop function if exists fun;
+delimiter $$
+create function fun(_codfiscale varchar(100))
+returns int deterministic
+begin
+	declare n int default 0;
+    declare ss int default 0;
+    
+    set n = (
+		select count(*)
+		from Esordio E
+		where E.Paziente = _codfiscale
+	);
+    set ss = (
+		select n * (sum(E.Gravita * fun1(E.EsordiPrecedenti)))
+		from Esordio E
+		where E.Paziente = _codfiscale
+    );
+    
+    return ss;
+end $$
+delimiter ;
+
+
+
