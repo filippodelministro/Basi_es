@@ -2,6 +2,7 @@ Argomenti:
     - Funzione if()
     - Funzione ifnull()
     - Costrutto case
+    - Materializd view
 
 --*==================================================================================
 --*									ES SLIDE										
@@ -55,3 +56,9 @@ from Paziente P left outer join (
         where M.Cognome = 'Amaranti'
 )as D on P.CodFiscale = D.Paziente
 group by P.CodFiscale
+
+--? Creare una materialized view MV_RESOCONTO avente funzione di reporting,
+--? contenente, per ogni specializzazione medica della clinica, il numero di visite
+--? effettuate, il numero di pazienti visitati, l’incasso totale relativo al mese in corso, e la
+--? matricola del medico che ha visitato più pazienti.
+--? Implementare l’on demand refresh, l’immediate refresh e il deferred refresh.
