@@ -14,6 +14,31 @@ from Medico M natural join (
 where M.Parcella = D.ParcellaMinima
 
 --==================================================================================
+--* DDL *--
+--? DELETE
+delete from Medico              -- con subquery
+where Matricola in (
+    select *
+    from ( ... 
+    
+    ) as D
+)
+
+delete M1.*                     -- ocn join anticipato
+from Medico M1 left outer join (
+    select *
+    from ...
+) as D on M1.Matricola = D.Medico
+
+--? UPDATE
+update Medico M natural join (
+    select *
+    from ...
+) as D
+set M.Parcella = M.Parcella * 1.05
+where -- cond 
+
+--==================================================================================
 
 --! handler per gestione errori
 -- dentro una proc
