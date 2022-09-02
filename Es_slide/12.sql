@@ -4,10 +4,11 @@ Argomenti:
             · rank()   [desc] 
             · dense_rank()
         · windowing
+            · lead(), lag()
     - over()
         · partition by
         · order by
-        · --todo: window
+        · window
     - CTE
 
 --*==================================================================================
@@ -51,3 +52,42 @@ select M.*,
                 ) as Convenienza
 from Medico M
 
+--? Effettuare una classifica dei medici di ogni specializzazione
+--? dipendentemente dalla loro parcella, partendo dalla più alta. Restituire
+--? matricola, cognome, specializzazione, parcella e posizione nella classifica.
+-- definisco la window su cui lavora il rank in un secondo momento
+select M.Matricola, M.Cognome, M.Specializzazione, rank() over w
+from Medico M
+window w as (partition by M.Specializzazione order by M.Parcella desc);
+
+
+--? Restituire, per ciascuna visita, matricola del medico, codice fiscale del paziente,
+--? data, e data della visita successiva del paziente con un medico della stessa 
+--? specializzazione
+--intopata con il case perchè più carina    
+select V.Medico, V.Paziente, V.Data, M.Specializzazione, 
+                             (case
+								when (lead(V.Data) over(partition by V.Paziente, M.Specializzazione)) is null then '\t--'
+                                else lead(V.Data) over(partition by V.Paziente, M.Specializzazione)
+                             end
+                             ) as successiva
+from Visita V inner join Medico M on V.Medico = M.Matricola
+
+
+--? Per ogni medico, restituire la sua matricola, il cognome, la parcella, e la
+--? percentuale di medici con parcella minore o uguale
+
+
+--*==================================================================================
+--*									ALTRE										
+--*==================================================================================
+--? indicare, per ogni paziente, la sua ultima Visita e la sua penultima
+select V1.Paziente, max(V2.Data) as Ultima, max(V1.Data) as Penultima
+from Visita V1 inner join Visita V2 on V1.Paziente = V2.Paziente
+									and V1.Data < V2.Data
+where V1.Data not in(
+		select max(V.Data)
+		from Visita V
+		where V.Paziente = V1.Paziente
+)
+group by V1.Paziente

@@ -3,6 +3,9 @@ Argomenti:
     - Funzione ifnull()
     - Costrutto case
     - Materializd view
+        · on demand refresh
+        · immediate refresh
+        · deferred refresh
 
 --*==================================================================================
 --*									ES SLIDE										
