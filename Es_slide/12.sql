@@ -78,6 +78,21 @@ from Visita V inner join Medico M on V.Medico = M.Matricola
 --? percentuale di medici con parcella minore o uguale
 
 
+--? Trovare per ogni terapia conclusa di ttw2, il farmaco, la durata, e la durata media
+--? rispetto alla terapia precedente e successiva con lo stesso farmaco
+select T.Farmaco, datediff(T.DataFineTerapia, T.DataInizioTerapia) as durata,
+		avg(datediff(T.DataFineTerapia, T.DataInizioTerapia)) over w as MovingAverage
+from Terapia T
+where T.Paziente = 'ttw2'
+	and T.DataFineTerapia is not null
+
+window w as (
+		partition by T.Farmaco          -- con lo stesso farmaco
+		order by T.DataInizioTerapia
+        rows between 1 preceding and 1 following
+)
+
+
 --*==================================================================================
 --*									ALTRE										
 --*==================================================================================
