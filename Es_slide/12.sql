@@ -91,3 +91,6 @@ where V1.Data not in(
 		where V.Paziente = V1.Paziente
 )
 group by V1.Paziente
+
+
+
