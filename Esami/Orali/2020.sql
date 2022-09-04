@@ -99,3 +99,51 @@ where TT3.Farmaco not in (
 			where datediff(TT2.DataFineTerapia, TT2.DataInizioTerapia) < datediff(TT1.DataFineTerapia, TT1.DataInizioTerapia)
 )
 
+
+--? Scrivere una query che consideri le specializzazioni della clinica e il primo trimestre degli 
+--? ultimi 10 anni, e per ciascuna restituisca il nome della specializzazione, l’anno, e la 
+--? differenza percentuale fra l’incasso ottenuto nel primo trimestre di tale anno con le visite
+--? non mutuate e quelle realizzate nel primo trimestre dell’anno precedente.
+-- fare con partition by???
+with 
+Incassi as (
+		select year(V.Data) as Anno, M.Specializzazione, sum(M.Parcella) as incasso
+		from Visita V inner join Medico M on V.Medico = M.Matricola
+		where V.Mutuata = 0
+			and month(V.Data) <= 3
+		group by year(V.Data), M.Specializzazione
+)
+
+select I1.Specializzazione, I1.Anno, -- I1.Incasso, I2.Incasso as IncassoPrec,
+								((I1.Incasso-I2.Incasso)/((I1.Incasso+I2.Incasso)/2))*100 as DiffPerc
+from Incassi I1 cross join Incassi I2 on I1.Anno = I2.Anno + 1
+									  and I1.Specializzazione = I2.Specializzazione
+where I1.Anno >= year(current_date()) - 10
+
+
+--? Scrivere una query che consideri gli esordi di gastrite nei bimestri Febbraio-Marzo degli 
+--? ultimi dieci anni, e restituisca in quali di questi anni più del 40% degli esordi del
+--? bimestre Febbraio-marzo hanno riguardato, nel complesso, pazienti di Pisa e Roma, rispetto
+--? al totale degli esordi di gastrite dello stesso bimestre.
+with
+EsordiTarget as (
+		select year(E.DataEsordio) as Anno, count(*) as NumEsordi
+		from Esordio E inner join Paziente P on E.Paziente = P.CodFiscale
+		where E.Patologia = 'Gastrite'
+			and year(E.DataEsordio) >= year(current_date()) - 10
+		   -- and (month(E.DataEsordio) = 2 or month(E.DataEsordio) = 3)
+		   and (P.Citta = 'Pisa' or P.Citta = 'Roma')
+		group by year(E.DataEsordio)
+),
+EsordiTot as (
+		select year(E.DataEsordio) as Anno, count(*) as NumEsordi
+		from Esordio E inner join Paziente P on E.Paziente = P.CodFiscale
+		where E.Patologia = 'Gastrite'
+			and year(E.DataEsordio) >= year(current_date()) - 10
+		   -- and (month(E.DataEsordio) = 2 or month(E.DataEsordio) = 3)
+		group by year(E.DataEsordio)
+)
+
+select ET.Anno
+from EsordiTarget ET inner join EsordiTot E on ET.Anno = E.Anno
+where ET.NumEsordi > 0.4 * E.NumEsordi
