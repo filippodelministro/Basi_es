@@ -100,8 +100,8 @@ set VisiteMutuate = (...)
     
     declare esito integer default 0;		-- per controllo errori
     
-    declare exit handler for sqlexception	-- in caso di errori gravi riporta tutto a stato precedente
-    begin
+    declare exit handler for sqlexception	-- in caso di errori gravi riporta 
+    begin                                   -- tutto a stato precedente
 		rollback;
         set esito = 1;
         select 'Si è verificato un errore!';
@@ -144,16 +144,132 @@ create temporary table if not exists nome_tab(
 )engine=InnoDB default charset=latin1;
 
 
---! materialized view
+--! materialized view 
+-- è a tutti gli effetti una tabella
+drop table if exists nome_mv;
+create table if not exists nome_mv(
+    nomevar1 int,
+    nomevar2 varchar(100)   
+    
+    primary key (nomevar1)
+    unique(...)             -- chiave candidata        
+)engine=InnoDB default charset=latin1;
 
+insert into nome_mv
+select ...
+    -- si possono anche utilizzare view (NON CTE???)
 
 --==================================================================================
 
+--! full refresh (on-demand)
+drop procedure if exists refresh_MV
+delimiter $$
+create procedure refresh_MV (out esito integer)
+begin
+
+    declare esito integer default 0;		-- per controllo errori    
+    declare exit handler for sqlexception	-- in caso di errori gravi riporta 
+    begin                                   -- tutto a stato precedente
+		rollback;
+        set esito = 1;
+        select 'Si è verificato un errore!';
+    end;
+
+    -- droppiamo la tabella e la rifacciamo (flushing)
+    truncate table nome_mv;
+
+    -- full refresh
+    insert into nome_mv
+    select *
+        -- [...]
+
+end $$
+delimiter ;
+
+--! full refresh (immediate)
+drop trigger if exists nome_trigger;
+delimiter $$
+create trigger nome_trigger
+after insert nome_tab for each row
+begin
+
+    -- [...]
+
+end $$
+delimiter;
+
+--! full refresh (deferred)
+------------------------------------------------------
+
+--! LOG TABLE
+create table nomeMV_log(
+    istante timestamp not null default current_timestamp,
+    nomevar1 char(50) not null,
+    nomevar2 int not null,
+    -- [...]
+
+    primary key (istante)
+)engine=InnoDB default charset=latin1;
+
+--! trigger di push
+delimiter $$
+drop trigger if exists nome_triggerPush $$
+create trigger nome_triggerPush
+after insert/*[update|delete]*/ on nome_tab for each row 
+begin
+    declare [...];
+
+    insert into nomeMV_log values(
+        current_timestamp,
+        NEW.nomevar1,
+        NEW.nomevar2,
+        -- [...]
+    )
+
+end $$
+delimiter;
+
+
+--! incremental refresh
+drop procedure if exists incremental_refresh
+delimiter $$
+create procedure incremental_refresh(
+    in metodo varchar(255),
+    in istante_soglia timestamp,
+    out esito integer    
+)
+begin
+    if metodo = 'rebuild' then
+        begin
+            call refresh_MV(@es)    -- chiama la proc che fa full refresh
+
+            if @es = 1 then         -- controlla che sia tutto OK
+                set esito = 1;
+            end if;
+        end;
+
+    elseif metodo = 'complete' or metoto = 'partial' then
+        begin
+            replace into nome_mv
+            select *
+            from (
+                select *
+                from nomeMV_log N1 inner join Medico M on N1.Medico = M.Matricola
+
+            )
+        end;
+end $$
+delimiter;
+
+
+
+
+--==================================================================================
 --! trigger
 drop trigger if exists nome_trigger;
 delimiter $$
 create trigger nome_trigger
-before /*[after]*/ insert/*[update|delete]*/ TabTarget for each row 
+before /*[after]*/ insert/*[update|delete]*/ on nome_tab for each row 
 begin
     -- [...] ;
 end $$
@@ -180,3 +296,5 @@ do
     set VisiteMutuate = (...)
 -- [on completion preserve] 
 -- NB: set event_scheduler = ON;
+
+--==================================================================================
