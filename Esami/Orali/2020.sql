@@ -198,6 +198,7 @@ delimiter ;
 --? la matricola del medico (fra i medici target) che ha effettuato il minor numero di visite
 --? non mutuate nel mese scorso (rispetto ai medici della sua specializzazione), e il
 --? relativo incasso. In caso di pari merito, restituire tutti gli ex aequo.
+
 with
 VisiteSpec as (
 		select D.Specializzazione, min(D.NumVisite) as MinNumVisite
@@ -205,7 +206,7 @@ VisiteSpec as (
 				select M.Matricola, M.Specializzazione, count(*) as NumVisite
 				from Medico M inner join Visita V on M.Matricola = V.Medico
                 where V.Mutuata = '0'
-					-- and month(V.Data) = month(current_date())
+					-- and month(V.Data) = month(current_date() - 1)
                     -- and year(V.Data) = year(current_date())
                 group by M.Matricola, M.Specializzazione
 		) as D
@@ -214,11 +215,11 @@ VisiteSpec as (
 MediciTarget as (
 		select *
 		from Medico M
-		group by M.Matricola
-		having avg(M.Parcella) > (
+        where M.Parcella > any (
 				select avg(M1.Parcella)
 				from Medico M1
 				where M1.Specializzazione <> M.Specializzazione
+                group by M1.Specializzazione
 		)
 ),
 TabTarget as(
@@ -226,15 +227,15 @@ TabTarget as(
 		from Medico M inner join Visita V on M.Matricola = V.Medico
 					  inner join VisiteSpec VS on VS.Specializzazione = M.Specializzazione
 		where M.Matricola in (
-		select D1.Matricola
-		from(
-				select *
-				from Medico M
-				group by M.Matricola
-				having avg(M.Parcella) > (
-						select avg(M1.Parcella)
-						from Medico M1
-						where M1.Specializzazione <> M.Specializzazione
+				select D1.Matricola
+				from(					-- prendi dai medici Target
+						select *
+						from Medico M
+						where M.Parcella > any (
+								select avg(M1.Parcella)
+								from Medico M1
+								where M1.Specializzazione <> M.Specializzazione
+								group by M1.Specializzazione
 						)
 				) as D1
 		)
@@ -244,3 +245,8 @@ TabTarget as(
 
 select M.Specializzazione, TT.*
 from Medico M inner join TabTarget TT on M.Matricola = TT.Matricola
+
+
+Scrivere una query che restituisca la matricola e cognome dei cardiologi che, al 20 Ottobre 2010,
+avevano visitato tutti i pazienti di almeno una città dalla quale provenissero almeno due pazienti
+che al tempo erano under 60 e affetti da almeno una patologia cardiaca cronica.
