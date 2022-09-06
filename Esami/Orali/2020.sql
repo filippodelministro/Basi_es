@@ -147,3 +147,48 @@ EsordiTot as (
 select ET.Anno
 from EsordiTarget ET inner join EsordiTot E on ET.Anno = E.Anno
 where ET.NumEsordi > 0.4 * E.NumEsordi
+
+--? Scrivere una stored procedure che sposti, in una tabella di archivio con stesso schema di
+--? Esordio, gli esordi di patologie gastriche conclusi con guarigione, relativi a pazienti che
+--? non hanno contratto, precedentemente all’esordio, patologie gastriche, ma che ne hanno
+--? curate con successo almeno due successivamente.
+drop procedure if exists proc;
+delimiter $$
+create procedure proc()
+begin
+	drop table if exists Tab;
+    create table Tab(
+		Paziente char(50) not null,
+        Patologia char(50) not null,
+        DataEsordio date not null,
+        DataGuarigione date not null,
+        Gravita int,
+        Cronica char(50),
+        EsordiPrecedenti int	,
+        primary key(Paziente, Patologia, DataEsordio)
+    )Engine=InnoDB default charset=latin1;
+
+	insert into Tab
+    select E.*
+	from Esordio E inner join Patologia P on E.Patologia = P.Nome
+	where P.SettoreMedico = 'Gastroenterologia'
+		and E.DataGuarigione is not null
+		and not exists (		-- non ci sono patologie gastriche precedenti
+				select *
+				from Esordio E1 inner join Patologia P1 on E1.Patologia = P1.Nome
+				where E1.DataEsordio < E.DataEsordio 
+					and P1.SettoreMedico = P.SettoreMedico
+					and E1.Paziente = E.Paziente 
+		)
+	and (
+		select count(*)
+		from Esordio E2 inner join Patologia P2 on E2.Patologia = P2.Nome
+		where E2.Paziente = E.Paziente
+			and E2.DataEsordio > E.DataEsordio
+			and E2.DataGuarigione is not null 
+			and P2.SettoreMedico = P.SettoreMedico
+	) >= 2;
+   
+end $$
+delimiter ;
+
