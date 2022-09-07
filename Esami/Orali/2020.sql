@@ -247,6 +247,93 @@ select M.Specializzazione, TT.*
 from Medico M inner join TabTarget TT on M.Matricola = TT.Matricola
 
 
-Scrivere una query che restituisca la matricola e cognome dei cardiologi che, al 20 Ottobre 2010,
-avevano visitato tutti i pazienti di almeno una città dalla quale provenissero almeno due pazienti
-che al tempo erano under 60 e affetti da almeno una patologia cardiaca cronica.
+--? Scrivere una query che restituisca la matricola e cognome dei cardiologi che, al 20 Ottobre
+--? 2010, avevano visitato tutti i pazienti di almeno una città dalla quale provenissero almeno
+--? due pazienti che al tempo erano under 60 e affetti da almeno una patologia cardiaca cronica.
+with
+PazCitta as (
+		select P.Citta, count(*) as NumPaz
+		from Paziente P
+		group by P.Citta
+),
+CittaTarget as (
+		select P.Citta
+		from Paziente P inner join Esordio E on P.CodFiscale = E.Paziente
+						inner join Patologia PA on E.Patologia = PA.Nome
+		where P.DataNascita + interval 60 year >= '2010-10-20'
+			and E.Cronica = 'si'
+			and PA.SettoreMedico = 'Cardiologia'
+		group by P.Citta
+		having count(*) >= 2
+)
+
+select V.Medico
+from Visita V inner join Medico M on V.Medico = M.Matricola
+			  inner join Paziente P on V.Paziente = P.CodFiscale
+              inner join PazCitta PC on P.Citta = PC.Citta
+where M.Specializzazione = 'Cardiologia'
+	and V.Data < '2010-10-20'
+    and P.Citta in (
+		select *
+        from CittaTarget
+    )
+group by V.Medico, PC.NumPaz
+having count(distinct V.Paziente) = PC.NumPaz
+    
+    
+--? Scrivere una query che restituisca gli anni (target) in cui, nel trimestre Gennaio-Marzo,
+--? fra tutte le patologie, è stata solo l’influenza a far registrare un aumento di più del
+--? 10% degli esordi rispetto al totale degli esordi della stessa patologia nello stesso
+--? trimestre dell’anno precedente, e qual è stato il mese del trimestre che ha fatto
+--? registrare il maggior aumento in termini di persone contagiate, per ogni anno target.
+
+with
+EsordiAnnoPat as(
+		select year(E.DataEsordio) as Anno, E.Patologia, count(*) as NumEsordi
+		from Esordio E
+		where month(E.DataEsordio) between 1 and 3
+			and E.Patologia <> 'Influenza'
+		group by year(E.DataEsordio), E.Patologia
+),
+AnniEscludere as (
+		select distinct EAP1.Anno
+		from EsordiAnnoPat EAP1 left outer join EsordiAnnoPat EAP2 on EAP1.Patologia = EAP2.Patologia
+																   and EAP1.Anno = EAP2.Anno + 1
+		where EAP1.NumEsordi >= 1.1 * EAP2.NumEsordi
+			or EAP2.Anno is null
+),
+EsordiAnnoInfl as(
+		select year(E.DataEsordio) as Anno, E.Patologia, count(*) as NumEsordi
+		from Esordio E
+		where month(E.DataEsordio) between 1 and 3
+			and E.Patologia = 'Influenza'
+		group by year(E.DataEsordio), E.Patologia
+),
+AnniIncludere as (
+		select distinct EAI1.Anno
+		from EsordiAnnoInfl EAI1 left outer join EsordiAnnoInfl EAI2 on EAI1.Anno = EAI2.Anno + 1
+		where EAI1.NumEsordi >= 1.1 * EAI2.NumEsordi
+			or EAI2.Anno is null
+),
+AnniGiusti as (
+		select *
+		from AnniIncludere AI
+		where AI.Anno not in (
+				select *
+				from AnniEscludere
+		)
+)
+
+select month(E.DataEsordio) as Mese
+from Esordio E inner join AnniGiusti AG on year(E.DataEsordio) = AG.Anno
+where month(E.DataEsordio) between 1 and 3
+group by month(E.DataEsordio)
+having count(*) >= (
+		select max(D.NumEsordio)
+		from (
+				select month(E.DataEsordio) as Mese, count(*) as NumEsordio
+				from Esordio E inner join AnniGiusti AG on year(E.DataEsordio) = AG.Anno
+				where month(E.DataEsordio) between 1 and 3
+				group by month(E.DataEsordio)
+		) as D
+)
