@@ -16,6 +16,7 @@ where Matricola in (
     
     ) as D
 )
+
 delete M1.*                     -- con join anticipato
 from Medico M1 left outer join (
     select *

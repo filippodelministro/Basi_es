@@ -337,3 +337,36 @@ having count(*) >= (
 				group by month(E.DataEsordio)
 		) as D
 )
+
+
+--? Scrivere una query che restituisca le patologie che, in almeno due degli ultimi trenta
+--? anni, si sono manifestate almeno una volta in tutti i mesi del primo trimestre dell’
+--? anno, in almeno due pazienti.
+select D.Patologia
+from (
+		select year(E.DataEsordio)as Anno, E.Patologia, count(distinct E.Paziente) as NumPaz
+		from Esordio E
+		where month(E.DataEsordio) <= 3									-- primo trimestre
+			and E.DataEsordio >= current_date() - interval 30 year		-- degli ultimi trent'anni
+		group by year(E.DataEsordio), E.Patologia
+		having count(distinct month(E.DataEsordio)) = 3		-- tre mesi diversi nel trimestre => un esordio per ogni mese
+) as D
+where D.NumPaz >= 2						-- prendo solo le Pat con più di due Paz diversi
+group by D.Patologia
+having count(distinct D.Anno) >= 2		-- e che abbiano due anni distinti
+
+
+--? Modificare le parcelle dei medici della cardiologia e dell’otorinolaringoiatria,
+--? facendo sı̀ che ogni medico abbia la parcella pari alla sua parcella attuale moltiplicata
+--? per (0.05*n), dove n è il numero di visite di pazienti provenienti dalla stessa città
+--? del medico, visitati negli ultimi trenta anni.
+update Medico M inner join (
+		select V.Medico, count(distinct V.Paziente) as NumPaz
+		from Medico M inner join Visita V on V.Medico = M.Matricola
+					  inner join Paziente P on V.Paziente = P.CodFiscale
+		where (M.Specializzazione = 'Cardiologia' or M.Specializzazione = 'Otorinolaringoiatria')
+			and V.Data > current_date() - interval 30 year
+			and M.Citta = P.Citta
+		group by V.Medico
+) as D on M.Matricola = D.Medico
+set M.Parcella = M.Parcella * (0.05 * D.NumPaz)
