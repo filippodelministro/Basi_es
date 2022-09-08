@@ -1,5 +1,5 @@
---* Data Manipulation *--
---? INSERT
+--* Data Manipulation Language*--
+--! INSERT
 insert into Medico
 values(...)             -- inserimento statico
 
@@ -8,7 +8,7 @@ select ...              -- ciò che si inserisce deve avere la stessa
                         -- "forma" di Medico
 
 
---? DELETE
+--! DELETE
 delete from Medico              -- con subquery
 where Matricola in (
     select *
@@ -24,7 +24,7 @@ from Medico M1 left outer join (
 ) as D on M1.Matricola = D.Medico
 where D.Qualcosa is null
 
---? UPDATE
+--! UPDATE
 -- aggiorna parcella di ogni medico con la media della sua spec
 update Medico M inner join (
 		select M.Specializzazione, avg(M.Parcella) as Media
@@ -35,10 +35,11 @@ set M.Parcella = D.Media
 --where         cond. eventuale
 
 --* Data Definition Language *--
---? DROP
+--! DROP
 drop table nome_tab;
 
---? CREATE
+--fix: non funziona cosi
+--! CREATE      
 drop table if exists nome_tab;
 create table if not exists nome_tab(
     nomevar1 int,
@@ -48,15 +49,15 @@ create table if not exists nome_tab(
     unique(...)             -- chiave candidata
 
     constraint nome_vincolo foreign key (nomevar1)
-    referneces nome_tab2(chiave_tab2)
+    references nome_tab2(chiave_tab2)
     on update no action;
         
 )engine=InnoDB default charset=latin1;
 
 
---? ALTER
+--! ALTER
 alter table Paziente
-add column VisiteMutuate integer not null default 0;
+add column nome_col integer not null default 0;
     -- drop coloumn
     -- drop primary key
     -- add primary key
@@ -94,6 +95,89 @@ set VisiteMutuate = (...)
     end loop ciclo;
     close nome_cur;
 
+--==================================================================================
+
+--! stored procedure
+drop procedure if exists nome_proc;
+delimiter $$
+create procedure nome_proc(
+	in _var1 int,
+    inout var2 int ,
+    out var3_ varchar(8)
+)
+
+begin
+	set var2 = var2 + _var1;	-- restituisce comunque la somma in var2
+		
+    -- versione con IF	
+    if var2%2 = 0 then
+		set var3_ = 'pari';
+    else
+		set var3_ = 'dispari';
+    end if;
+    
+    -- versione con CASE
+    case 
+		when var2 % 2 = 0 then set var3_ = 'pari';
+        when var2 % 2 = 0 then set var3_ = 'dispari';
+    end case;
+end $$
+
+delimiter ;
+
+--! functions
+drop function if exists nome_fun;
+delimiter $$
+create function nome_fun(
+	_var1 int,		-- sono ingressi (implicito)
+    _var2 int
+)
+returns int deterministic
+
+begin
+	declare ret int default 0;
+
+	set ret = _var1 + _var2;
+    return ret;
+end $$
+
+delimiter ;
+
+
+------------------------------------------------------
+--! trigger
+drop trigger if exists nome_trigger;
+delimiter $$
+create trigger nome_trigger
+before /*[after]*/ insert/*[update|delete]*/ on nome_tab for each row 
+begin
+    -- [...] ;
+end $$
+delimiter;
+
+
+--! event
+-- singolo
+create event nome_event
+on schedule at /*data_ora*/
+starts 'yyyy-mm-dd hh:mm:ss'
+do 
+    update Paziente P
+    set VisiteMutuate = (...)
+-- [on completion preserve] 
+
+-- recurring
+create event nome_event
+on schedule every 1 day         -- every lo rende recurring
+starts 'yyyy-mm-dd hh:mm:ss'
+-- [ends] ...
+do 
+    update Paziente P
+    set VisiteMutuate = (...)
+-- [on completion preserve] 
+-- NB: set event_scheduler = ON;
+
+--==================================================================================
 
 --! handler per gestione errori
 -- dentro una proc
@@ -110,25 +194,13 @@ set VisiteMutuate = (...)
 
     -- [...]
 
---==================================================================================
-
---! functions
-drop function if exists fun1;
-delimiter $$
-create function fun1(_val int)
-returns int /*[not]*/ deterministic
-begin
-	declare ret int default 0;
-    
-    -- [...]
-
-    return ret;
-end $$
-delimiter;
-
---==================================================================================
 
 --! cte
+with NomeCTE as (
+    select *
+    from -- [...]
+
+)
 
 --! view
 create or replace view nome_view as 
@@ -199,6 +271,8 @@ begin
 end $$
 delimiter;
 
+
+--todo: 
 --! full refresh (deferred)
 ------------------------------------------------------
 
@@ -263,39 +337,3 @@ end $$
 delimiter;
 
 
-
-
---==================================================================================
---! trigger
-drop trigger if exists nome_trigger;
-delimiter $$
-create trigger nome_trigger
-before /*[after]*/ insert/*[update|delete]*/ on nome_tab for each row 
-begin
-    -- [...] ;
-end $$
-delimiter;
-
-
---! event
--- singolo
-create event nome_event
-on schedule at /*data_ora*/
-starts 'yyyy-mm-dd hh:mm:ss'
-do 
-    update Paziente P
-    set VisiteMutuate = (...)
--- [on completion preserve] 
-
--- recurring
-create event nome_event
-on schedule every 1 day         -- every lo rende recurring
-starts 'yyyy-mm-dd hh:mm:ss'
--- [ends] ...
-do 
-    update Paziente P
-    set VisiteMutuate = (...)
--- [on completion preserve] 
--- NB: set event_scheduler = ON;
-
---==================================================================================
