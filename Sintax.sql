@@ -38,20 +38,18 @@ set M.Parcella = D.Media
 --! DROP
 drop table nome_tab;
 
---fix: non funziona cosi
 --! CREATE      
 drop table if exists nome_tab;
 create table if not exists nome_tab(
-    nomevar1 int,
-    nomevar2 varchar(100)   
+    var1 int,
+    var2 varchar(100), 
     
-    primary key (nomevar1)
-    unique(...)             -- chiave candidata
+    primary key (var1),
+    unique(var2),             -- chiave candidata
 
-    constraint nome_vincolo foreign key (nomevar1)
+    constraint nome_vincolo foreign key (var1)
     references nome_tab2(chiave_tab2)
-    on update no action;
-        
+    on update no action
 )engine=InnoDB default charset=latin1;
 
 
@@ -98,6 +96,23 @@ begin
     end loop ciclo;
     close nome_cur;
 end $$
+
+--! handler per gestione errori
+-- dentro una proc
+    -- [...]
+    
+    declare esito integer default 0;		-- per controllo errori
+    
+    declare exit handler for sqlexception	-- in caso di errori gravi riporta 
+    begin                                   -- tutto a stato precedente
+		rollback;
+        set esito = 1;
+        select 'Si è verificato un errore!';
+    end;
+
+    -- [...]
+
+
 --==================================================================================
 
 --! stored procedure
@@ -160,18 +175,14 @@ delimiter;
 
 
 --! event
--- singolo
+-- singolo              [eseguito una volta sola]
 create event nome_event
--- on schedule at on schedule at current_timestamp()
-on schedule every 6 month
-starts current_timestamp 
+on schedule at on schedule at current_timestamp()
 do
 	update nome_tab T
     set T.qualcosa = 'qualcosasltro';
 
--- [on completion preserve] 
-
--- recurring
+-- recurring            [eseguito ogni giorno alla data ora]
 create event nome_event
 on schedule every 1 day         -- every lo rende recurring
 starts 'yyyy-mm-dd hh:mm:ss'
@@ -179,25 +190,10 @@ starts 'yyyy-mm-dd hh:mm:ss'
 do 
     update Paziente P
     set VisiteMutuate = (...)
--- [on completion preserve] 
+-- [on completion preserve]     -- viene preservato dopo l'esecuzione, quindi rischedulato
 -- NB: set event_scheduler = ON;
 
 --==================================================================================
-
---! handler per gestione errori
--- dentro una proc
-    -- [...]
-    
-    declare esito integer default 0;		-- per controllo errori
-    
-    declare exit handler for sqlexception	-- in caso di errori gravi riporta 
-    begin                                   -- tutto a stato precedente
-		rollback;
-        set esito = 1;
-        select 'Si è verificato un errore!';
-    end;
-
-    -- [...]
 
 
 --! cte
