@@ -351,4 +351,23 @@ end $$
 delimiter ;
 
 
+--? Scrivere una query che restituisca per ogni Medico, nessuno escluso, il numero di
+--? visite per ogni mese dell'anno 2013, nessun mese escluso (laddove non ci fossero
+--? visite deve apparire 0 nel result set)
+with
+TuttiMesi as (		-- serve per prendere tutti i mesi
+		select distinct month(Data) as Mese
+		from Visita
+),
+VisiteTarget as (	-- prendo le visite che mi interessano, le conto per ogni Medico, in ciascun Mese
+	select V.Medico, month(V.Data) as Mese, count(*) as NumVisite
+    from Visita V
+    where year(V.Data) = 2013
+    group by V.Medico, month(V.Data)
+)
 
+-- joino le visite interessate con tutti i mesi esistenti
+select M.Matricola, TM.Mese, ifnull(VT.NumVisite, 0) as NumVisite
+from Medico M cross join TuttiMesi TM
+			  left outer join VisiteTarget VT on VT.Mese = TM.Mese
+											  and M.Matricola = VT.Medico

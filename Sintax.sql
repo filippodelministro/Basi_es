@@ -70,31 +70,34 @@ set VisiteMutuate = (...)
 --! utilizzo cursori
 --dentro proc
     -- [...]
-
-    declare finito integer default 0;   -- serve per handler
-    declare nome_var varchar default "";
-
+begin
+	-- var di appoggio
+	declare finito int default 0;
+    declare valore int default 0;
+    
+    -- cursore
     declare nome_cur cursor for
-        select *        -- tabella su cui scorre il cursore
-        from [...]
-
-    declare continue handler    -- se finisce mette, modifica finito
-        for not found set finito = 1;
-
+		select var_da_prendere					-- tabella su cui scorre il cursore
+        from nome_tab;
+    
+    -- handler
+    declare continue handler for not found		-- se finisce modifica 'finito'
+		set finito = 1;
+        
+	-- ciclo fetch
     open nome_cur;
     ciclo: loop
-        fetch nome_cur into nome_var    -- devono essere dello stesso tipo!!
-
-        -- controllo fine del cursore
-        if finito = 1 then
-            leave ciclo;
-        end if;
-
-        -- faccio cose con nome_var
+		fetch nome_cur into valore;				-- devono essere dello stesso tipo!
+        
+		if finito = 1 then
+			leave ciclo;
+		end if;
+        
+        -- faccio cose con 'valore'
 
     end loop ciclo;
     close nome_cur;
-
+end $$
 --==================================================================================
 
 --! stored procedure
@@ -159,11 +162,13 @@ delimiter;
 --! event
 -- singolo
 create event nome_event
-on schedule at /*data_ora*/
-starts 'yyyy-mm-dd hh:mm:ss'
-do 
-    update Paziente P
-    set VisiteMutuate = (...)
+-- on schedule at on schedule at current_timestamp()
+on schedule every 6 month
+starts current_timestamp 
+do
+	update nome_tab T
+    set T.qualcosa = 'qualcosasltro';
+
 -- [on completion preserve] 
 
 -- recurring
