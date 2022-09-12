@@ -50,68 +50,21 @@ create table if not exists nome_tab(
     constraint nome_vincolo foreign key (var1)
     references nome_tab2(chiave_tab2)
     on update no action
+              -- set default
+              -- set null
+              -- cascade
 )engine=InnoDB default charset=latin1;
 
 
 --! ALTER
 alter table Paziente
-add column nome_col integer not null default 0;
+add column nome_col integer not null default 0 after Citta;
     -- drop coloumn
     -- drop primary key
     -- add primary key
     -- add unique
 update Paziente P
-set VisiteMutuate = (...)
-
---==================================================================================
-
---! utilizzo cursori
---dentro proc
-    -- [...]
-begin
-	-- var di appoggio
-	declare finito int default 0;
-    declare valore int default 0;
-    
-    -- cursore
-    declare nome_cur cursor for
-		select var_da_prendere					-- tabella su cui scorre il cursore
-        from nome_tab;
-    
-    -- handler
-    declare continue handler for not found		-- se finisce modifica 'finito'
-		set finito = 1;
-        
-	-- ciclo fetch
-    open nome_cur;
-    ciclo: loop
-		fetch nome_cur into valore;				-- devono essere dello stesso tipo!
-        
-		if finito = 1 then
-			leave ciclo;
-		end if;
-        
-        -- faccio cose con 'valore'
-
-    end loop ciclo;
-    close nome_cur;
-end $$
-
---! handler per gestione errori
--- dentro una proc
-    -- [...]
-    
-    declare esito integer default 0;		-- per controllo errori
-    
-    declare exit handler for sqlexception	-- in caso di errori gravi riporta 
-    begin                                   -- tutto a stato precedente
-		rollback;
-        set esito = 1;
-        select 'Si è verificato un errore!';
-    end;
-
-    -- [...]
-
+set VisiteMutuate = 0;
 
 --==================================================================================
 
@@ -177,7 +130,7 @@ delimiter;
 --! event
 -- singolo              [eseguito una volta sola]
 create event nome_event
-on schedule at on schedule at current_timestamp()
+on schedule at current_timestamp()
 do
 	update nome_tab T
     set T.qualcosa = 'qualcosasltro';
@@ -192,6 +145,55 @@ do
     set VisiteMutuate = (...)
 -- [on completion preserve]     -- viene preservato dopo l'esecuzione, quindi rischedulato
 -- NB: set event_scheduler = ON;
+
+--==================================================================================
+
+--! utilizzo cursori
+--dentro proc
+    -- [...]
+begin
+	-- var di appoggio
+	declare finito int default 0;
+    declare valore int default 0;
+    
+    -- cursore
+    declare nome_cur cursor for
+		select var_da_prendere					-- tabella su cui scorre il cursore
+        from nome_tab;
+    
+    -- handler
+    declare continue handler for not found		-- se finisce modifica 'finito'
+		set finito = 1;
+        
+	-- ciclo fetch
+    open nome_cur;
+    ciclo: loop
+		fetch nome_cur into valore;				-- devono essere dello stesso tipo!
+        
+		if finito = 1 then
+			leave ciclo;
+		end if;
+        
+        -- faccio cose con 'valore'
+
+    end loop ciclo;
+    close nome_cur;
+end $$
+
+--! handler per gestione errori
+-- dentro una proc
+    -- [...]
+    
+    declare esito integer default 0;		-- per controllo errori
+    
+    declare exit handler for sqlexception	-- in caso di errori gravi riporta 
+    begin                                   -- tutto a stato precedente
+		rollback;
+        set esito = 1;
+        select 'Si è verificato un errore!';
+    end;
+
+    -- [...]
 
 --==================================================================================
 
@@ -211,10 +213,18 @@ create or replace view nome_view as
 
 --! temporary table
 create temporary table if not exists nome_tab(
-    nomevar1 int,
-    nomevar2 varchar(100)
+    var1 int,
+    var2 varchar(100),
     
-    primary key (nomevar1)
+    primary key (var1),
+    unique(var2),             -- chiave candidata
+
+    constraint nome_vincolo foreign key (var1)
+    references nome_tab2(chiave_tab2)
+    on update no action
+              -- set default
+              -- set null
+              -- cascade
 )engine=InnoDB default charset=latin1;
 
 
@@ -222,11 +232,18 @@ create temporary table if not exists nome_tab(
 -- è a tutti gli effetti una tabella
 drop table if exists nome_mv;
 create table if not exists nome_mv(
-    nomevar1 int,
-    nomevar2 varchar(100)   
+    var1 int,
+    var2 varchar(100),
     
-    primary key (nomevar1)
-    unique(...)             -- chiave candidata        
+    primary key (var1),
+    unique(var2),             -- chiave candidata
+
+    constraint nome_vincolo foreign key (var1)
+    references nome_tab2(chiave_tab2)
+    on update no action
+              -- set default
+              -- set null
+              -- cascade
 )engine=InnoDB default charset=latin1;
 
 insert into nome_mv
