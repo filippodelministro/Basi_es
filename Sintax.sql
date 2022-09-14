@@ -230,8 +230,8 @@ create temporary table if not exists nome_tab(
 
 --! materialized view 
 -- è a tutti gli effetti una tabella
-drop table if exists nome_mv;
-create table if not exists nome_mv(
+drop table if exists nome_MV;
+create table if not exists nome_MV(
     var1 int,
     var2 varchar(100),
     
@@ -246,57 +246,89 @@ create table if not exists nome_mv(
               -- cascade
 )engine=InnoDB default charset=latin1;
 
-insert into nome_mv
+insert into nome_MV
 select ...
     -- si possono anche utilizzare view (NON CTE???)
 
 --==================================================================================
+-- Ad una certa aggiornano la MV a partire dai RawData: ci sono tre modi per farlo che sono
+--     - deferred => event
+--     - on demand => procedure
+--     - immediate => trigger: è l'unico a mantenere la MV in sync con i Raw Data
 
---! full refresh (on-demand)
-drop procedure if exists refresh_MV
+--! on-demand refresh (full)
+drop procedure if exists full_refresh
 delimiter $$
-create procedure refresh_MV (out esito integer)
+create procedure full_refresh()
 begin
 
-    declare esito integer default 0;		-- per controllo errori    
-    declare exit handler for sqlexception	-- in caso di errori gravi riporta 
-    begin                                   -- tutto a stato precedente
-		rollback;
-        set esito = 1;
-        select 'Si è verificato un errore!';
-    end;
+    --* nell nuove slide non c'è questa parte
+    -- declare esito integer default 0;		-- per controllo errori    
+    -- declare exit handler for sqlexception	-- in caso di errori gravi riporta 
+    -- begin                                   -- tutto a stato precedente
+	-- 	rollback;
+    --     set esito = 1;
+    --     select 'Si è verificato un errore!';
+    -- end;
 
     -- droppiamo la tabella e la rifacciamo (flushing)
-    truncate table nome_mv;
+    truncate table nome_MV;
 
     -- full refresh
-    insert into nome_mv
+    insert into nome_MV
     select *
-        -- [...]
+        -- [...]    è come ripopolare la tabella
 
 end $$
 delimiter ;
 
---! full refresh (immediate)
-drop trigger if exists nome_trigger;
+
+--! deferred refresh (full)
+drop event if exists deferred_refresh
 delimiter $$
-create trigger nome_trigger
-after insert nome_tab for each row
+create event deferred_refresh
+on schedule every 1 month
+starts '2020-10-10 23:00:00'
+do
+begin
+    call full_refresh();    -- chiama la proc del full refresh
+end $$
+delimiter ;
+
+--! immediate refresh (sync)
+drop trigger if exists immediate_refresh;
+delimiter $$
+create trigger immediate_refresh
+after insert nome_MV for each row
 begin
 
-    -- [...]
+    -- declare var [...]
 
+    update nome_MV
+    set [...]
+nome_tab
 end $$
 delimiter;
 
-
---todo: 
---! full refresh (deferred)
 ------------------------------------------------------
+--!INCREMENTAL REFRESH
+-- La MV non viene aggiornata del tutto, ma solo la parte non aggiornata, per fare questo
+-- è necessario il LOG, che memorizza le modifiche sui Raw Data
+--     - partial => aggiorna usando solo parte del LOG 
+--     - complete => aggiorna usando tutto il LOG
+--     - rebuild => distrugge e ricostruisce
+
+
+-- Il LOG contiene informazioni utili per poter aggiornare la MV: utilizzando solo dati già
+-- presenti nella MV e nel LOG
+
+--todo:
+--* PROGETTAZIONE LOG TABLE:
+    -- 1. 
 
 --! LOG TABLE
 create table nomeMV_log(
-    istante timestamp not null default current_timestamp,
+    istante timestamp not null default current_timestamp,   -- serve sempre per incremental refresh
     nomevar1 char(50) not null,
     nomevar2 int not null,
     -- [...]
@@ -313,9 +345,9 @@ begin
     declare [...];
 
     insert into nomeMV_log values(
-        current_timestamp,
-        NEW.nomevar1,
-        NEW.nomevar2,
+        current_timestamp,      
+        new.nomevar1,
+        new.nomevar2,
         -- [...]
     )
 
@@ -327,31 +359,58 @@ delimiter;
 drop procedure if exists incremental_refresh
 delimiter $$
 create procedure incremental_refresh(
-    in metodo varchar(255),
+    in metodo varchar(255),         -- viene passato il metodo (rebuild/complete/partial)
     in istante_soglia timestamp,
     out esito integer    
 )
 begin
     if metodo = 'rebuild' then
         begin
-            call refresh_MV(@es)    -- chiama la proc che fa full refresh
+            call full_refresh()    -- chiama la proc che fa full refresh
 
-            if @es = 1 then         -- controlla che sia tutto OK
-                set esito = 1;
-            end if;
+            --* ci potrebbe esser bisogno di un esito del full refresh => full_refresh(@es)
+            -- if @es = 1 then         -- controlla che sia tutto OK
+            --     set esito = 1;
+            -- end if;
+        
         end;
 
-    elseif metodo = 'complete' or metoto = 'partial' then
+    elseif metodo = 'complete' or metodo = 'partial' then
         begin
-            replace into nome_mv
-            select *
+            replace into nome_MV
+            select [...] -- come è fatta la MV
             from (
                 select *
                 from nomeMV_log N1 inner join Medico M on N1.Medico = M.Matricola
-
+                where Istante <= if(metodo = 'complete', current_timestamp, istante_soglia)
+                    -- [...]
             )
+
+            if(metodo = 'complete') then
+                truncate table nomeMV_log
+            else
+                delete from nomeMV_log
+                    where Istante <= istante_soglia
+            end if;
+            
         end;
 end $$
 delimiter;
+
+
+--todo
+--! partial refresh 
+delimiter $$
+drop procedure if exists on_demand_refresh_MV $$
+create procedure on_demand_refresh_MV(_fino_a date)
+begin
+
+    with aggr_LOG as (...)
+
+
+
+
+end $$
+delimiter ;
 
 
