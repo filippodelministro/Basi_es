@@ -3,39 +3,24 @@
 --? non meno di una settimana prima (con versione join equivalente, sapere cosa vuol dire
 --? l’errore “the target table is not updatable”: sto cercando di fare un aggiornamento su
 --? una derived table)
-delete T4.*
-from Terapia T4 left outer join 
-(
-		select *
-		from Terapia T inner join Farmaco F on T.Farmaco = F.NomeCommerciale
-					   inner join Paziente P on T.Paziente = P.CodFiscale
-		where F.PrincipioAttivo = 'Pantoprazolo'
+delete T2.*
+from Terapia T2 natural left outer join (
+		select T.*
+		from Terapia T inner join Paziente P on T.Paziente = P.CodFiscale
+					   inner join Farmaco F on T.Farmaco = F.NomeCommerciale
+		where P.Sesso = 'F'
+			and F.PrincipioAttivo = 'Pantoprazolo'
+			and T.DataFineTerapia is null
 			and T.DataInizioTerapia < current_date() - interval 2 day
-			and P.Sesso = 'F'
-			and T.DataFineTerapia is null		-- in corso
 			and exists (
-					select *
-					from Terapia T1
-					where T1.Paziente = T.Paziente
-						and T1.Farmaco = T.Farmaco
-						and T1.DataInizioTerapia <> T.DataInizioTerapia
-						and T1.DataFineTerapia < T.DataInizioTerapia
-						and T1.DataFineTerapia >= T.DataInizioTerapia - interval 1 week
-			)
-			and not exists (
-							select *
-							from Terapia T2
-							where T2.Paziente = T.Paziente
-								and T2.Farmaco = T.Farmaco
-								and T2.DataInizioTerapia <> T.DataInizioTerapia
-								and T2.DataFineTerapia < T.DataInizioTerapia
-								and T2.DataFineTerapia >= T.DataInizioTerapia - interval 1 week
-			)
-		) as D on T4.Paziente = D.Paziente
-			   and T4.Patologia = D.Patologia
-               and T4.DataEsordio = D.DataEsordio
-               and T4.Farmaco = D.Farmaco
-               and T4.DataInizioTerapia = D.DataInizioTerapia
+				select *
+				from Terapia T1
+				where T1.Paziente = T.Paziente
+					and T1.Farmaco = T.Farmaco
+					and T1.DataFineTerapia > current_date() - interval 1 week
+    )
+) as D
+where D.Paziente is not null
 
 
 --? Scrivere una query che restituisca la città dalla quale proviene il maggior numero di
@@ -104,7 +89,7 @@ where TT3.Farmaco not in (
 --? ultimi 10 anni, e per ciascuna restituisca il nome della specializzazione, l’anno, e la 
 --? differenza percentuale fra l’incasso ottenuto nel primo trimestre di tale anno con le visite
 --? non mutuate e quelle realizzate nel primo trimestre dell’anno precedente.
--- fare con partition by???
+--? fare con partition by???
 with 
 Incassi as (
 		select year(V.Data) as Anno, M.Specializzazione, sum(M.Parcella) as incasso
@@ -286,7 +271,6 @@ having count(distinct V.Paziente) = PC.NumPaz
 --? 10% degli esordi rispetto al totale degli esordi della stessa patologia nello stesso
 --? trimestre dell’anno precedente, e qual è stato il mese del trimestre che ha fatto
 --? registrare il maggior aumento in termini di persone contagiate, per ogni anno target.
-
 with
 EsordiAnnoPat as(
 		select year(E.DataEsordio) as Anno, E.Patologia, count(*) as NumEsordi
