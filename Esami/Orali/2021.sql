@@ -125,6 +125,73 @@ delimiter ;
 --? sostenuta per tali visite. Se mutuate, le visite hanno un costo di 38 Euro. Popolare 
 --? la materialized view e scrivere il codice per mantenerla in sync con i raw data.
 
+-- procedura per full_refresh sulla MV SpesaVisita: viene chiamata ad ogni modifica
+-- di Visita e/o Paziente
+drop procedure if exists update_SpesaVisite_FR;
+delimiter $$
+create procedure update_SpesaVisite_FR()
+begin
+
+	-- view per i PazientiTarget (aggiornata ad ogni full_refresh)
+	create or replace view PazientiTarget as (
+			select V.Paziente, M.Specializzazione
+			from Visita V inner join Medico M on V.Medico = M.Matricola
+			group by V.Paziente, M.Specializzazione
+			having count(distinct M.Citta) = (
+					select count(distinct M1.Citta)
+					from Medico M1
+					where M.Specializzazione = M1.Specializzazione
+			)
+	);
+
+	-- MV vera e propria (aggiornata ad ogni full_refresh)
+	drop table if exists SpesaVisite;
+	create table SpesaVisite(
+			Nome char(50),
+			Cognome char(50),
+			NumMedico int,
+			SpesaTot double
+	)engine=InnoDB default charset=latin1;
+
+	insert into SpesaVisite
+	select distinct P.Nome, P.Cognome, count(distinct V.Medico) as NumMedico, sum(if(V.Mutuata = 0, M.Parcella, 38)) as SpesaTot
+	from Paziente P inner join Visita V on V.Paziente = P.CodFiscale
+					inner join Medico M on V.Medico = M.Matricola
+	where P.CodFiscale in (
+		select Paziente
+		from PazientiTarget
+	) 
+	group by V.Paziente;
+end $$
+delimiter ;
+
+-- trigger per l'aggiornamento in sync con i raw-data: chiamano la procedura di full_refresh ad ogni
+-- modifica sulle tabelle Visita o Paziente
+drop trigger if exists update_SpesaVisite1;
+delimiter $$
+create trigger update_SpesaVisite1
+after insert on Visita for each row
+begin
+	call update_SpesaVisite_FR();
+end $$
+delimiter ;
+
+drop trigger if exists update_SpesaVisite2;
+delimiter $$
+create trigger update_SpesaVisite2
+after insert on Paziente for each row
+begin
+	call update_SpesaVisite_FR();
+end $$
+delimiter ;
+
+-- Prima chiamata della procedura per la creazione della MV 
+call update_SpesaVisite_FR();
+
+
+
+
+
 
 --? Scrivere una stored procedure che sposti, in una tabella di archivio con stesso schema
 --? di Esordio, gli esordi di patologie gastriche conclusi con guarigione, relativi a pazienti
