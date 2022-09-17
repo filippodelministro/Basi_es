@@ -27,13 +27,50 @@ where D.Paziente is not null
 --? pazienti che non hanno sofferto d’insonnia per un numero di giorni maggiore a quello
 --? degli altri pazienti della loro città. In caso di pari merito restituire tutti gli
 --? ex aequo
+with
+Durata as (
+		select D.*, P.Citta
+        from Paziente P inner join (
+				select E.Paziente, max(E.DataGuarigione - E.DataEsordio) as DurataMax
+				from Esordio E
+				where E.Patologia = 'Insonnia'
+					and E.DataGuarigione is not null
+				group by E.Paziente
+		) as D on D.Paziente = P.CodFiscale
+)
 
+select D1.Citta
+from Durata D1
+where not exists (
+		select *
+		from Durata D2
+		where D2.Paziente <> D1.Paziente
+			and D2.Citta = D1.Citta
+			and D2.DurataMax < D1.DurataMax
+)
+group by D1.Citta
+having count(*) = (
+		select max(D.Num) as NumInsonni
+		from (
+				select D1.Citta, count(*) as Num
+				from Durata D1
+				where not exists (
+						select *
+						from Durata D2
+						where D2.Paziente <> D1.Paziente
+							and D2.Citta = D1.Citta
+							and D2.DurataMax < D1.DurataMax
+				)
+				group by D1.Citta
+		) as D
+)
 
 
 --? Scrivere una query che, considerati gli ultimi dieci anni, restituisca anno e mese (come 
 --? numeri interi) in cui non è stata effettuata alcuna visita in una (e una sola) specializzazione
 --? fra quelle aventi almeno due medici provenienti dalla stessa città. Il nome di tale
 --? specializzazione deve completare il record.
+
 select distinct year(V1.Data) as Anno, month(V1.Data) as Mese
 from Visita V1 left outer join (
 select year(V.Data) as Anno, month(V.Data) as Mese

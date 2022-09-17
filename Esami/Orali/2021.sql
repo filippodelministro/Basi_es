@@ -189,11 +189,47 @@ delimiter ;
 call update_SpesaVisite_FR();
 
 
-
-
-
-
 --? Scrivere una stored procedure che sposti, in una tabella di archivio con stesso schema
 --? di Esordio, gli esordi di patologie gastriche conclusi con guarigione, relativi a pazienti
 --? che non hanno contratto, precedentemente all'esordio, patologie gastriche, ma che ne
 --? hanno curate con successo almeno due successivamente.
+
+drop procedure if exists update_ArchivioEsordio;
+delimiter $$
+create procedure update_ArchivioEsordio()
+begin 
+	drop table if exists ArchivioEsordio;
+    create table ArchivioEsordio(
+		Paziente char(50),
+        Patologia char(50),
+        DataEsordio date,
+        DataGuarigione date,
+        Gravita int,
+        Cronica char(50),
+        EsordiPrecedenti int
+    )engine=InnoDB default charset = latin1;
+
+	insert into ArchivioEsordio
+    select E.*
+	from Esordio E inner join Patologia P on E.Patologia = P.Nome
+	where P.SettoreMedico = 'Gastroenterologia'
+		and E.DataGuarigione is not null
+		and not exists (
+			select *
+			from Esordio E1 inner join Patologia P1 on E1.Patologia = P1.Nome
+			where P1.SettoreMedico = 'Gastroenterologia'
+				and E1.Paziente = E.Paziente
+				and E1.DataEsordio < E.DataEsordio
+		)
+		and 2 <= (
+			select count(*)
+			from Esordio E2 inner join Patologia P2 on E2.Patologia = P2.Nome
+			where P2.SettoreMedico = 'Gastroenterologia'
+				and E2.Paziente = E.Paziente
+				and E2.DataEsordio > E.DataEsordio
+				and E2.DataGuarigione is not null
+		);
+end $$
+delimiter ;
+
+   
