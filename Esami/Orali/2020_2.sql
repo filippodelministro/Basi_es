@@ -83,3 +83,62 @@ having count(*) = (
 
 
 
+--? Scrivere una query che restituisca il nome commerciale dei farmaci che, in almeno un mese
+--? del 2013, sono stati impiegati in terapie, iniziate e concluse in quel mese, tutte di 
+--? durata inferiore a quelle iniziate e concluse nello stesso mese basate su un altro farmaco,
+--? nell’ambito della cura di una stessa patologia. La query restituisca anche la patologia,
+--? e le durate mensili medie delle terapie dei due farmaci per tale patologia, calcolate 
+--? considerando i mesi in cui la condizione si è verificata.
+with
+TerapieTarget as (
+		select *
+		from Terapia T1
+		where year(T1.DataInizioTerapia) = 2013
+			and month(T1.DataInizioTerapia) = month(T1.DataFineTerapia)
+),
+Risultato as (
+		select TT1.Patologia, TT1.Farmaco as Farmaco1, TT2.Farmaco as Farmaco2, month(TT1.DataInizioTerapia) as Mese
+		from TerapieTarget TT1 inner join TerapieTarget TT2 on TT1.Patologia = TT2.Patologia
+															and TT1.Farmaco <> TT2.Farmaco
+															and month(TT1.DataInizioTerapia) = month(TT2.DataInizioTerapia)
+		where datediff(TT1.DataFineTerapia, TT1.DataInizioTerapia) < datediff(TT2.DataFineTerapia, TT2.DataInizioTerapia)
+)
+
+select T1.Farmaco, avg(datediff(T1.DataFineTerapia, T1.DataInizioTerapia)) as Media
+from Terapia T1 inner join Risultato R1 on T1.Patologia = R1.Patologia
+									   and T1.Farmaco = R1.Farmaco1
+                                       and month(T1.DataInizioTerapia) = R1.Mese
+                                       and year(T1.DataInizioTerapia) = 2013
+                                       and month(T1.DataInizioTerapia) = month(T1.DataFineTerapia)
+group by T1.Farmaco
+
+union
+
+select T1.Farmaco, avg(datediff(T1.DataFineTerapia, T1.DataInizioTerapia))
+from Terapia T1 inner join Risultato R1 on T1.Patologia = R1.Patologia
+									   and T1.Farmaco = R1.Farmaco2
+                                       and month(T1.DataInizioTerapia) = R1.Mese
+                                       and year(T1.DataInizioTerapia) = 2013
+                                       and month(T1.DataInizioTerapia) = month(T1.DataFineTerapia)
+group by T1.Farmaco
+
+
+--? Scrivere una query che consideri le specializzazioni della clinica e il primo trimestre degli 
+--? ultimi 10 anni, e per ciascuna restituisca il nome della specializzazione, l’anno, e la 
+--? differenza percentuale fra l’incasso ottenuto nel primo trimestre di tale anno con le visite
+--? non mutuate e quelle realizzate nel primo trimestre dell’anno precedente.
+
+with
+IncassiAnno as (
+		select year(V.Data) as Anno, M.Specializzazione, sum(M.Parcella) as Incasso
+		from Medico M inner join Visita V on M.Matricola = V.Medico
+		where V.Data > current_date() - interval 20 year
+			and month(V.Data) < 4
+			and V.Mutuata = 0
+		group by year(V.Data), M.Specializzazione
+)
+
+select IA2.Anno, IA2.Specializzazione, (IA2.Incasso - IA1.Incasso) / IA1.Incasso*100 as Percentuale
+from IncassiAnno IA1 inner join IncassiAnno IA2 on IA1.Anno = IA2.Anno - 1
+													 and IA1.Specializzazione = IA2.Specializzazione
+

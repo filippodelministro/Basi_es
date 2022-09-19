@@ -16,8 +16,31 @@ where PA.SettoreMedico = 'Gastroenterologia'
     )
 
 
-
-
 --? Implementare un analytic efficiente (tramite select statement con variabili user-defined) che,
 --? dato un farmaco, ne restituisca il nome commerciale e il codice fiscale del primo paziente
 --? che lo ha utilizzato
+drop function if exists nome;
+delimiter $$
+create function nome(
+	_farmaco char(50)
+)
+returns char(50) deterministic
+begin
+	
+    set @primaData =(
+		select min(T.DataInizioTerapia)
+		from Terapia T
+		where T.Farmaco = _farmaco
+	);
+	set @ret = (
+			select T.Paziente
+			from Terapia T
+			where T.DataInizioTerapia = @primaData
+				and T.Farmaco = _farmaco
+	);
+	
+    return concat(_farmaco, ' ', @ret);
+    
+end $$
+delimiter ;
+
