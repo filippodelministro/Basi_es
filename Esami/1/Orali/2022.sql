@@ -35,7 +35,7 @@ create or replace view  SettimaneVuote as (
 				where dayofweek(V.Data) <> 1
 					and dayofweek(V.Data) <> 7
 				group by V.Medico, year(V.Data), month(V.Data), week(V.Data)
-				having count(*) < 1
+				-- having count(*) < 1
 		) as D
 		group by D.Medico, D.Anno, D.Mese
 );
