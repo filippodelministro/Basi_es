@@ -61,3 +61,4 @@ select P.SettoreMedico,
 from TerapieTarget T inner join Farmaco F on T.Farmaco = F.NomeCommerciale
 					 inner join Patologia P on T.Patologia= P.Nome
 group by P.SettoreMedico
+
