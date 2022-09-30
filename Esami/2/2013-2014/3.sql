@@ -1,12 +1,24 @@
 --? Considerato ciascun principio attivo, indicarne il nome e il costo medio 
 --? al pezzo fra tutti i farmaci che lo contengono.
-
+select F.PrincipioAttivo, avg(F.Costo/F.Pezzi) as CostoMedio
+from Farmaco F
+group by F.PrincipioAttivo
 
 --? Indicare nome e cognome dei pazienti che hanno contratto almeno due volte 
 --? tutte le patologie intestinali.
 
+
+
 --? Indicare le patologie esordite esclusivamente in forma cronica, curate 
 --? con il farmaco Lyrica.
+select E.Patologia
+from Esordio E inner join Terapia T on E.Patologia = T.Patologia
+where E.Patologia not in (
+	select Patologia
+	from Esordio
+	where Cronica = 'no'
+)
+	and T.Farmaco = 'Lyrica'
 
 
 --? Scrivere un trigger che, in risposta all’aggiornamento della gravità di 
