@@ -49,8 +49,24 @@ where E.Patologia not in (
 
 
 
-
 --? Indicare la specializzazione medica che, considerate le visite effettuate
 --? dai suoi medici dall’anno 2010 a oggi, ha totalizzato ogni anno un numero
 --? di pazienti visitati per ciascuna città mai inferiore all’anno precedente.
+with
+TabTarget as (
+		select year(V.Data) as Anno, M.Specializzazione, P.Citta, count(*) as NumVisite
+		from Visita V inner join Medico M on V.Medico = M.Matricola
+					  inner join Paziente P on V.Paziente = P.CodFiscale
+		where year(V.Data) > 2009
+		group by year(V.Data), M.Specializzazione, P.Citta
+)
 
+select distinct Specializzazione
+from Medico
+where Specializzazione not in (
+		select distinct T1.Specializzazione
+		from TabTarget T1 inner join TabTarget T2 on T1.Anno = T2.Anno - 1
+												  and T1.Specializzazione = T2.Specializzazione
+												  and T1.Citta = T2.Citta
+		where T1.NumVisite > T2.NumVisite
+)
