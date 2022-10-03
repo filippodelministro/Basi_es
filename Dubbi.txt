@@ -1,0 +1,4 @@
+· Creare trigger per la modifica di un solo attributo
+    esame 3 2013-2014
+
+
