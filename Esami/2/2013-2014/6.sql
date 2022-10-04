@@ -83,6 +83,56 @@ where CodFiscale in (
 --? mese dal medico sul paziente, quest’ultimo non fosse affetto da alcuna 
 --? patologia.
 
+drop trigger if exists trig;
+delimiter $$
+create trigger trig
+before insert on Visita for each row
+begin
+	declare ok_visite bool default false;
+    declare ok_esordio bool default false;
+    
+    if exists (
+		select *
+        from Visita V
+        where V.Paziente = new.Paziente
+			and V.Medico = new.Medico
+            and year(V.Data) = year(current_date())
+            and month(V.Data) = month(current_date())
+            and exists (	-- esiste un altra Visita (stessi parametri) in data diversa
+				select *
+                from Visita V1
+                where V1.Paziente = new.Paziente
+					and V1.Medico = new.Medico
+					and year(V1.Data) = year(current_date())
+					and month(V1.Data) = month(current_date())
+					and V1.Data <> V.Data
+            )
+    ) 
+		then set ok_visite = true;
+    end if;
+
+	if exists (     -- esiste un Esordio
+		select *
+        from Esordio E
+        where E.Paziente = new.Paziente
+			and year(E.DataEsordio) = year(current_date())
+            and month(E.DataEsordio) = month(current_date())
+    ) 
+        then set ok_esordio = true;
+    end if;
+    
+    -- se esistono le visite, ma non l'Esordio, non posso inserire
+    if (ok_visite = true and ok_esordio <> true) then
+		signal sqlstate '45000'
+        set message_text = 'Limite visite senza Esordi!';
+    end if;
+    
+end $$
+delimiter ;
+
+
+
+
 
 --? Considerato ciascun farmaco per la cura di patologie gastroenterologiche,
 --? indicato per più di una patologia, ma di fatto assunto per curare un’unica
@@ -90,7 +140,6 @@ where CodFiscale in (
 --? ultimi cento anni, mantenere nella tabella INDICAZIONE la sola indicazione
 --? del farmaco considerato riguardante tale unica patologia, eliminando 
 --? tutte le altre.
-
 with
 FarmaciTarget as (
 		select I.Farmaco

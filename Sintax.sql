@@ -123,6 +123,8 @@ create trigger nome_trigger
 before /*[after]*/ insert/*[update|delete]*/ on nome_tab for each row 
 begin
     -- [...] ;
+    signal sqlstate '45000'
+    set message_text = 'Limite massimo visite mutuate!';
 end $$
 delimiter;
 
