@@ -1,16 +1,80 @@
 --? Indicare nome e cognome di ciascun medico che ha visitato tutti i pazienti
 --? della sua città.
-
-                
-
+select M.Nome, M.Cognome
+from Visita V inner join Medico M on V.Medico = M.Matricola
+		      inner join Paziente P on V.Paziente = P.CodFiscale
+where M.Citta = P.Citta
+group by V.Medico, M.Citta
+having count(distinct V.Paziente) = (
+		select count(*)
+        from Paziente P1
+        where P1.Citta = M.Citta
+)
+              
 --? Indicare nome e cognome dei pazienti che hanno avuto, anche solo per un 
 --? giorno, più terapie in corso contemporaneamente.
-
+select distinct P.Nome, P.Cognome
+from Terapia T inner join Paziente P on T.Paziente = P.CodFiscale
+where exists (	-- terapia iniziata dopo e finita dopo
+		select *
+        from Terapia T1
+        where T1.Paziente = T.Paziente
+			and T1.Farmaco <> T.Farmaco
+            and T1.Patologia <> T.Patologia
+			and T1.DataInizioTerapia > T.DataInizioTerapia
+            and T1.DataFineTerapia > T.DataFineTerapia
+)
+or exists (		-- terapia iniziata dopo e finita prima
+		select *
+        from Terapia T1
+        where T1.Paziente = T.Paziente
+			and T1.Farmaco <> T.Farmaco
+            and T1.Patologia <> T.Patologia
+			and T1.DataInizioTerapia > T.DataInizioTerapia
+            and T1.DataFineTerapia < T.DataFineTerapia
+)
+or exists (		-- terapia iniziata prima ma non finita
+		select *
+        from Terapia T1
+        where T1.Paziente = T.Paziente
+			and T1.Farmaco <> T.Farmaco
+            and T1.Patologia <> T.Patologia
+			and T1.DataInizioTerapia < T.DataInizioTerapia
+            and T1.DataFineTerapia is null
+)
+or exists (		-- terapia iniziata prima e finita dopo
+		select *
+        from Terapia T1
+        where T1.Paziente = T.Paziente
+			and T1.Farmaco <> T.Farmaco
+            and T1.Patologia <> T.Patologia
+			and T1.DataInizioTerapia < T.DataInizioTerapia
+            and T1.DataFineTerapia > T.DataFineTerapia
+)
+or exists (		-- terapia iniziata prima e finita dopo
+		select *
+        from Terapia T1
+        where T1.Paziente = T.Paziente
+			and T1.Farmaco <> T.Farmaco
+            and T1.Patologia <> T.Patologia
+			and T1.DataInizioTerapia < T.DataInizioTerapia
+            and T1.DataFineTerapia > T.DataFineTerapia
+)
 
 
 --? Indicare il reddito massimo fra quelli di tutti i pazienti che, nell’
 --? anno 2011, hanno effettuato esattamente tre visite, ognuna delle quali 
 --? con un medico avente specializzazione diversa dagli altri.
+select max(Reddito) as RedditoMax
+from Paziente
+where CodFiscale in (
+		select V.Paziente
+		from Visita V inner join Medico M on V.Medico = M.Matricola
+		where year(V.Data) = 2011
+		group by V.Paziente
+		having count(distinct M.Specializzazione) = 3
+			and count(distinct V.Data) = 3
+)
 
 
 --? Creare un vincolo di integrità generico (mediante un trigger) per impedire 
@@ -26,3 +90,33 @@
 --? ultimi cento anni, mantenere nella tabella INDICAZIONE la sola indicazione
 --? del farmaco considerato riguardante tale unica patologia, eliminando 
 --? tutte le altre.
+
+with
+FarmaciTarget as (
+		select I.Farmaco
+		from Patologia P inner join Indicazione I on P.Nome = I.Patologia
+		where P.SettoreMedico = 'Gastroenterologia'
+			and I.Farmaco in (	-- Farmaci usati per una sola Patologia
+				select T.Farmaco
+				from Patologia P inner join Terapia T on P.Nome = T.Patologia
+				where P.SettoreMedico = 'Gastroenterologia'
+				group by T.Farmaco
+				having count(distinct T.Patologia) = 1
+		)
+		group by I.Farmaco
+		having count(distinct I.Patologia) > 1	-- aventi Indicazione per più di una patologia
+)
+
+delete I1.*
+from Indicazione I1 left outer join (
+		select T.Farmaco, T.Patologia
+		from Terapia T
+		where T.Farmaco in (
+			select *
+			from FarmaciTarget
+		)
+		group by T.Farmaco, T.Patologia
+) as D on I1.Farmaco = D.Farmaco
+	   and I1.Patologia = D.Patologia
+where I1.Patologia is null
+
