@@ -63,3 +63,37 @@ from (
 --? visite di accertamento, quante ne hanno effettuate per ogni visita iniziale,
 --? e il cognome del medico che ha effettuato tale visita iniziale.
 --? Gestire la materialized view mediante deferred refresh con cadenza trimestrale.
+
+with
+PrimeVisite as (
+		select V.Paziente, V.Data, V.Medico
+		from Visita V inner join Medico M on V.Medico = M.Matricola
+		where V.Data > current_date() - interval 10 year
+		and exists(			-- esiste una visita successiva della stessa spec con medico diverso
+			select *
+			from Visita V1 inner join Medico M1 on V1.Medico = M1.Matricola
+			where M1.Specializzazione = M.Specializzazione
+				and M1.Matricola <> M.Matricola
+				and V1.Data > V.Data		
+		)
+		and not exists (	-- e non esiste una terapia della stessa spec
+			select *
+			from Terapia T inner join Patologia PA on T.Patologia = PA.Nome
+			where PA.SettoreMedico = M.Specializzazione
+				and T.DataInizioTerapia > V.Data
+		)
+)
+
+select PV.Paziente, PV.Data, M.Cognome, count(*) as VisiteAcc
+from PrimeVisite PV inner join Visita V on PV.Paziente = V.Paziente
+										and PV.Data < V.Data
+                                        and PV.Medico = V.Medico
+					inner join Medico M on PV.Medico = M.Matricola
+group by PV.Paziente, PV.Data, PV.Medico
+
+
+
+
+
+
+
