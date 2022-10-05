@@ -1,10 +1,15 @@
 --? Considerato ogni principio attivo, indicarne il nome e il numero medio 
 --? di giorni per cui sono indicati i farmaci che lo contengono.
+select F.PrincipioAttivo, avg(I.NumGiorni) as MediaGiorni
+from Farmaco F inner join Indicazione I on F.NomeCommerciale = I.Farmaco
+group by F.PrincipioAttivo
 
 
 --? Indicare nome e cognome dei pazienti che, per curare gli esordi di almeno
 --? una patologia, hanno complessivamente assunto tutti i farmaci assunti
 --? da almeno un paziente per curare tale patologia 
+
+
 
 --? Scrivere un evento che sconti mensilmente del 2% i farmaci che sono stati 
 --? assunti in meno del 10% delle terapie iniziate nel mese precedente.

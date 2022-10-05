@@ -131,9 +131,6 @@ end $$
 delimiter ;
 
 
-
-
-
 --? Considerato ciascun farmaco per la cura di patologie gastroenterologiche,
 --? indicato per più di una patologia, ma di fatto assunto per curare un’unica
 --? patologia per oltre il 60% delle terapie basate su di esso iniziate negli 
