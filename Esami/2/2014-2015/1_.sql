@@ -51,6 +51,35 @@ from (
 --? che per prima cosa sia inserito il farmaco, dopodiché siano inserite 
 --? le varie indicazioni.
 
+-- controllo solo su Indicazione: il farmaco è già 
+-- stato inserito correttamente
+drop trigger if exists trig;
+delimiter $$
+create trigger trig
+before insert on Indicazione for each row
+begin
+	declare princ_att char(50) default null;
+
+	set princ_att = (	-- trovo principio attivo del farmaco della nuova Indicazione
+		select F.PrincipioAttivo
+        from Farmaco F
+        where F.NomeCommerciale = new.Farmaco
+    );
+
+	if exists (			-- se esiste già un altro farmaco con stesso PrincAtt e stessa potologia non inserisco
+		select *
+        from Indicazione I inner join Farmaco F on I.Farmaco = F.NomeCommerciale
+        where I.Farmaco <> new.Farmaco
+			and I.Patologia = new.Patologia
+            and F.PrincipioAttivo = princ_att
+    ) then
+		signal sqlstate '45000'
+        set message_text = 'Esiste già Indicazione per stessa patologia!';
+    end if;
+end $$
+delimiter ;
+
+
 --? Un paziente effettua una visita di accertamento quando, dopo essere stato 
 --? visitato inizialmente da un medico, desidera avere anche il parere di un altro
 --? medico della stessa specializzazione, dal quale si fa visitare senza iniziare, 
@@ -63,7 +92,6 @@ from (
 --? visite di accertamento, quante ne hanno effettuate per ogni visita iniziale,
 --? e il cognome del medico che ha effettuato tale visita iniziale.
 --? Gestire la materialized view mediante deferred refresh con cadenza trimestrale.
-
 with
 PrimeVisite as (
 		select V.Paziente, V.Data, V.Medico
