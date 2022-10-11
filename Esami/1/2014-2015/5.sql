@@ -6,8 +6,8 @@ from Patologia P
 where P.Invalidita > 70
 group by P.ParteCorpo
 having count(distinct P.Nome) = (
-	select max(D.NumPat) as MaxNumPat
-	from (
+	select max(D.NumPat) as MaxNumPat -- poi trovo il massimo
+	from (	-- prima le conto
 			select P.ParteCorpo, count(distinct P.Nome) as NumPat
 			from Patologia P
 			where P.Invalidita > 70
