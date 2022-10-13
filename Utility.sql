@@ -28,3 +28,23 @@ select
 from Terapia T inner join Farmaco F on T.Farmaco = F.NomeCommerciale
 			   inner join Patologia P on T.Patologia = P.Nome
 where T.Patologia = 'Insonnia'
+
+
+--? Conta per ogni medico il numero di terapie con Guarigione e il numero totale di terapie
+--? prescritte: considera il medico che prescrive come l'ultimo ad aver visitato nella
+--? stessa specializzazione
+select M.Matricola, if(year(E.DataGuarigione) = _anno, 1, 0) as Successo    -- in questo caso aggiunge se la guarigione è nello stesso anno
+		from Terapia T inner join Visita V on T.Paziente = V.Paziente
+					   inner join Patologia PA on T.Patologia = PA.Nome
+					   inner join Medico M on M.Specializzazione = PA.SettoreMedico
+                       inner join Esordio E on E.DataEsordio = T.DataEsordio
+											and E.Paziente = T.Paziente
+                                            and E.Patologia = T.Patologia
+		where year(T.DataInizioTerapia) = _anno      -- data una V.Data e una T.DataInizioTerapia, non deve esistere
+			and not exists (                         -- una seconda visita compresa tra le due date, dello stesso paziente
+				select *                             -- con un medico della stessa specializzazione
+				from Visita V2 inner join Medico M2 on V2.Medico = M2.Matricola
+				where V2.Paziente = T.Paziente
+					and M2.Specializzazione = M.Specializzazione
+					and V2.Data between V.Data and T.DataInizioTerapia
+			)
