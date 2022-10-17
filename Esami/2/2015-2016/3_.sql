@@ -24,13 +24,3 @@ where EC.CasiTarget >= (
     from EsordiCitta
 )
 
-
---? Con cadenza imprevedibile, la direzione della clinica è interessata a conoscere, per 
---? ciascuna specializzazione, il numero di nuovi pazienti visitati, il medico che effettua 
---? il numero minore di prime visite, e il numero di città diverse dalle quali provengono i 
---? pazienti visitati per la prima volta. Si desidera creare uno snapshot REPORT aggiornato
---? mediante partial refresh con tecnica on demand. Pertanto, si richiede:
---?     i) la creazione dello snapshot;
---?     ii) la creazione della log table e il codice di gestione della stessa; 
---?     iii) una o più stored procedure per implementare il partial refresh. Le stored 
---?         procedure non devono fare uso di subquery né view.
