@@ -1,12 +1,69 @@
 --? Scrivere una query che, considerata ciascuna parte del corpo, ne restituisca il nome, e i 
 --? principi attivi contenuti in farmaci indicati solamente per la cura di patologie a 
 --? carico di tale parte del corpo.
+with
+PATarget as (	-- PrincAtt indicati per Patologie di una sola ParteCorpo
+	select F.PrincipioAttivo
+	from Indicazione I inner join Farmaco F on F.NomeCommerciale = I.Farmaco
+					   inner join Patologia PA on I.Patologia = PA.Nome
+	group by F.PrincipioAttivo
+	having count(distinct PA.ParteCorpo) = 1
+)
 
-
+select PA.ParteCorpo, F.PrincipioAttivo
+from Indicazione I inner join Farmaco F on F.NomeCommerciale = I.Farmaco
+				   inner join Patologia PA on I.Patologia = PA.Nome
+where F.PrincipioAttivo in (select * from PATarget)
+order by PA.ParteCorpo
 
 --? Scrivere una query che elenchi nome e cognome dei pazienti oggi maggiorenni che, al 5 
 --? Settembre 2015, erano stati visitati da tutti gli oculisti della clinica, tranne 
 --? eventualmente uno, e, qualora esista, il cognome di tale oculista.
+with
+VisiteTarget as (
+	select V.Paziente, V.Medico
+	from Visita V inner join Paziente P on V.Paziente = P.CodFiscale
+				  inner join Medico M on V.Medico = M.Matricola
+	where M.Specializzazione = 'Oculistica'
+		and P.DataNascita < current_date() - interval 18 year
+),
+PazTarget as (
+	select VT.Paziente
+	from VisiteTarget VT
+	group by VT.Paziente
+	having count(distinct VT.Medico) = (
+		select count(*)
+		from Medico
+		where Specializzazione = 'Oculistica'
+	)
+	or count(distinct VT.Medico) = (
+		select count(*)
+		from Medico
+		where Specializzazione = 'Oculistica'
+	) - 1
+),
+Oculisti as (
+	select *
+    from Medico
+    where Specializzazione = 'Oculistica'
+),
+Combinazioni as (   -- creo tutte le combinazioni tra Oculisti e PazTarget: po guardo se esiste una VisitaTarget
+	select *
+	from Oculisti O cross join PazTarget PT
+)
+
+-- controllo se esiste una VisitaTarget di tutte le combinazioni tra PT e Oculisti
+select P.Nome, P.Cognome, D.Cognome as Medico
+from Paziente P inner join PazTarget PT on P.CodFiscale = PT.Paziente
+	left outer join (
+	select C.Paziente, C.Nome, C.Cognome
+	from VisiteTarget VT right outer join Combinazioni C on VT.Paziente = C.Paziente
+														 and VT.Medico = C.Matricola
+	where VT.Medico is null
+) as D on PT.Paziente = D.Paziente
+
+
+
 
 --? Scrivere una stored procedure report_spese che riceva in ingresso tre parametri: il 
 --? codice fiscale di un paziente i, il nome di un settore medico s e un parametro booleano 
