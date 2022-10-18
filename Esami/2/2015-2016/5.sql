@@ -1,12 +1,14 @@
-Esercizio 1 (9 punti)
-Scrivere una query che blocchi, cancellandole, le terapie in corso basate sul farmaco Broncho-Vaxom, ini-
-ziate più di tre giorni fa, da pazienti pediatrici (età inferiore a 12 anni) attualmente affetti da broncospasmo.
-A cancellazione avvenuta, restituire, come result set, il codice fiscale dei pazienti oggetto di blocco.
+--? Scrivere una query che blocchi, cancellandole, le terapie in corso basate sul farmaco 
+--? Broncho-Vaxom, iniziate più di tre giorni fa, da pazienti pediatrici (età inferiore a 
+--? 12 anni) attualmente affetti da broncospasmo. A cancellazione avvenuta, restituire, come 
+--? result set, il codice fiscale dei pazienti oggetto di blocco.
 
-Esercizio 2 (10 punti)
-Introdurre una ridondanza SpesaGiornaliera nella tabella P AZIENTE per mantenere l’attuale spesa giornalie-
-ra in farmaci di ciascun paziente. Nel computo, si ignorino le patologie con diritto di esenzione. Scrivere il
-codice per creare, popolare e mantenere costantemente aggiornata la ridondanza.
+
+
+--? Introdurre una ridondanza SpesaGiornaliera nella tabella PAZIENTE per mantenere l’attuale
+--? spesa giornaliera in farmaci di ciascun paziente. Nel computo, si ignorino le patologie con
+--? diritto di esenzione. Scrivere il codice per creare, popolare e mantenere costantemente 
+--? aggiornata la ridondanza.
 
 
 --? Considerato ogni medico avente parcella inferiore alla parcella media di almeno altre due 
@@ -21,8 +23,64 @@ codice per creare, popolare e mantenere costantemente aggiornata la ridondanza.
 --?     € 36.15 per redditi fino a € 36,152;
 --?     € 50.00 per redditi tra € 36,153 e € 100,000;
 --?     € 70.00 per redditi superiori a € 100,000.
---? Se la visita specialistica mutuata è una visita di controllo, cioè se il paziente ha 
---? già effettuato una visita mutuata con lo stesso medico non oltre sei mesi prima, ma 
---? comunque nello stesso anno, il ticket è ridotto del 35%. Un paziente può effettuare un 
---? numero illimitato di visite specialistiche mutuate in un anno, e ognuna di esse può
---? prevedere al massimo due visite di controllo.
+drop function if exists ticket;
+delimiter $$
+create function ticket(_codFiscale char(50))
+returns double deterministic
+begin
+	declare reddito int default 0;
+	declare ret double default 0;
+
+    set reddito = (
+		select Reddito * 12
+        from Paziente
+        where CodFiscale = _codFiscale
+    );
+    
+    if(reddito < 36152) then
+		set ret = 36.15;
+    elseif (reddito < 100000) then
+		set ret = 50;
+    else 
+		set ret = 70;
+	end if;
+    
+    return ret;
+end $$
+delimiter ;
+
+
+with
+MediaSpec as (
+	select M.Specializzazione, avg(M.Parcella) as Media
+	from Medico M
+	group by M.Specializzazione
+),
+MediciTarget as (
+	select M1.*
+    from Medico M1 inner join (
+		select M.Matricola
+		from Medico M cross join MediaSpec MS
+		where M.Specializzazione <> MS.Specializzazione
+			and M.Parcella < MS.Media
+		group by M.Matricola
+		having count(distinct MS.Specializzazione) > 1 
+	) as D on M1.Matricola = D.Matricola
+),
+VisiteMed as (
+	select MT.Matricola, MT.Specializzazione, count(*) as NumVisite,
+			sum(ticket(V.Paziente)) as TotIncassi
+	from Visita V inner join MediciTarget MT on V.Medico = MT.Matricola
+	where month(V.Data) = month(current_date())
+		-- and V.Mutuata = 1
+	group by MT.Matricola
+)
+
+
+select VM.*
+from VisiteMed VM natural join Medico M
+where VM.NumVisite = (
+	select max(VM1.NumVisite)
+    from VisiteMed VM1
+    where VM1.Specializzazione = VM.Specializzazione
+)
