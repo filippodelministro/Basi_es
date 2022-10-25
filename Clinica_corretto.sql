@@ -1,3 +1,4 @@
+drop database 'Clinica';
 
 SET NAMES latin1;
 SET FOREIGN_KEY_CHECKS = 0;
