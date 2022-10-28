@@ -384,7 +384,10 @@ begin
             from (
                 select *
                 from nomeMV_log N1 inner join Medico M on N1.Medico = M.Matricola
-                where Istante <= if(metodo = 'complete', current_timestamp, istante_soglia)
+                -- faccio replace solo dove mi interessa:
+                    -- complete => fino ad timestamp corrente (adesso)
+                    -- partial => fino a istante_soglia
+                where Istante <= if(metodo = 'complete', current_timestamp, istante_soglia) 
                     -- [...]
             )
 
@@ -404,10 +407,40 @@ delimiter;
 --! partial refresh 
 delimiter $$
 drop procedure if exists on_demand_refresh_MV $$
-create procedure on_demand_refresh_MV(_fino_a date)
+create procedure on_demand_refresh_MV(_soglia date)
 begin
 
-    with aggr_LOG as (...)
+    declare _istante_ timestamp default '0000-00-00 00:00:00';
+    declare _var1_ int default 0;
+    declare _var2_ int default 0;
+    declare finito int default 0;
+
+    declare scanLog cursor for (
+        select istante, nomevar1, nomevar2
+        from nomeMV_log;
+    )
+
+    declare continue handler for not found
+        set finito = 1;
+
+    open scanLog;
+    ciclo: loop
+        fetch scanLog into _istante_, _var1_, _var2_
+        if finito = 1 then 
+            leave ciclo;
+        else
+            if _istante <= _soglia then
+                -- aggiorno la MV
+                update nome_MV
+                    set ...;
+
+                -- e aggiorno il LOG
+                delete from nomeMV_log
+                    where istante = _istante_;
+            end if;
+        end if;
+    end loop;
+    close scanLog;
 
 end $$
 delimiter ;
