@@ -39,13 +39,3 @@ begin
 
 end $$
 delimiter ;
-
-
-
-
-
---? Implementare una analytic function efficiente (tramite select statement con variabili
---? user-defined) per ottenere il cognome dei medici aventi rank = 1 e rank = 2 in una
---? classifica in cui un medico ottiene un rank tanto più alto quante più visite ha effettuato
---? rispetto agli altri medici della sua specializzazione. Scrivere, in un commento, di quale
---? analytic function si tratta, fra quelle viste a lezione.
