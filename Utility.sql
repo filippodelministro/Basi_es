@@ -13,6 +13,32 @@ from Medico M natural join (
 )as D
 where M.Parcella = D.ParcellaMinima
 
+--? Medico che ha fatto più visite per ogni specializzazione
+--! questo NON mette gli ex-aequo nel result set
+select V.Medico, M.Specializzazione, count(*) as NumVisite
+from Visita V inner join Medico M on V.Medico = M.Matricola
+group by V.Medico
+having count(*) > all (
+	select count(*)
+    from Visita V1 inner join Medico M1 on V1.Medico = M1.Matricola
+    where M1.Specializzazione = M.Specializzazione
+		and V1.Medico <> V.Medico
+    group by V1.Medico
+)
+
+--! questo mette gli ex-aequo nel result set    (cambia l'= nell subquery)
+select V.Medico, M.Specializzazione, count(*) as NumVisite
+from Visita V inner join Medico M on V.Medico = M.Matricola
+group by V.Medico
+having count(*) >= all (
+	select count(*)
+    from Visita V1 inner join Medico M1 on V1.Medico = M1.Matricola
+    where M1.Specializzazione = M.Specializzazione
+		-- and V1.Medico <> V.Medico   questo non serve
+    group by V1.Medico
+)
+
+
 --? Costo totale delle terapie (d'insonnia), esenzione compresa
 select 
         (floor(
