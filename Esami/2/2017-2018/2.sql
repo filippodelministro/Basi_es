@@ -37,10 +37,36 @@ where F.NomeCommerciale in (
 --? patologia non cronica della specializzazione s e la visita immediatamente successiva del
 --? paziente p con un medico della clinica avente specializzazione s.
 
+drop procedure if exists avg_ill_visit;
+delimiter $$
+create procedure avg_ill_visit(
+	in _paziente char(50),
+    in _settMedico char(50),
+	out media_ double
+)
+begin
+	set media_ = (
+		select avg(DD.PrimaVisita) as Media
+        from (
+			select D.DataEsordio, min(D.Diff) as PrimaVisita
+			from (
+				select E.DataEsordio, V.Data, datediff(V.Data, E.DataEsordio)as Diff
+				from Esordio E inner join Patologia PA on E.Patologia = PA.Nome
+							   inner join Visita V on E.Paziente = V.Paziente
+							   inner join Medico M on V.Medico = M.Matricola
+				where PA.SettoreMedico = _settMedico
+					and E.Paziente = _paziente
+					and E.Cronica = 'no'
+					and PA.SettoreMedico = M.Specializzazione
+					and E.DataEsordio < V.Data
+				group by E.DataEsordio, V.Data
+			) as D
+			group by D.DataEsordio
+		) as DD
+	);
+end $$
+delimiter ;
 
---? Implementare una analytic function efficiente (tramite un solo select statement con variabili
---? user-defined) che, per ciascuna visita v dal 2010 a oggi, restituisca la matricola del medico
---? m che l’ha effettuata, la data in cui è stata effettuata, e la matricola del medico della
---? stessa specializzazione e della stessa città di m che ha eseguito la visita temporalmente
---? più prossima alla visita v, fra quelle precedenti, indipendentemente dal paziente visitato.
---? Scrivere in un commento di quale analytic function si tratta fra quelle viste a lezione.
+set @media = 0;
+call avg_ill_visit('bbc4', 'Cardiologia', @media);
+select @media;
