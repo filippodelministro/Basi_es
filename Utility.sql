@@ -74,3 +74,21 @@ select M.Matricola, if(year(E.DataGuarigione) = _anno, 1, 0) as Successo    -- i
 					and M2.Specializzazione = M.Specializzazione
 					and V2.Data between V.Data and T.DataInizioTerapia
 			)
+
+--==================================================================================
+--? Incremental refresh
+
+--! creo tabella TARGET
+
+--! popolo tabella TARGET   --NB: a partire da data indicata (effettuare build a partire da...)
+
+--! LOG: salvo con un trigger di push le modifche che servono per poter aggiornare
+--! LOG: la tabella TARGET
+
+--! partial incremental refresh:
+    --* on demand:
+        -- si fa con procedura in cui si indica data di soglia fino a cui refreshare
+
+    --* 
+
+
