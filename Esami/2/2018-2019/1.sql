@@ -48,3 +48,82 @@ set @pos = 0;
 call drug_usage_position('Quait', @pos);
 select @pos
 
+
+--? Ai fini di un indagine predittiva sullo stress, si desidera effettuare un'aggregazione periodica dei dati
+--? relativi agli esordi di patologie a carico dello stomaco. In tale aggregazione, ogni esordio E a carico
+--? dello stomaco è associato a un valore ricavato aggregandone i dati con quelli dell'esordio precedente
+--? E_prec e successivo E_succ dello stesso paziente, realtivi alla stessa patologia. Creare una MV MV_STOMACO
+--? che, per ciascun esordio E, contenga, il nome della patologia, il codice fiscale del paziente, la data
+--? dell'esordio, e il numero medio di gironi fra quelli trascorsi dall'esordio E_prec e l'inizio dell'esordio
+--? E, e quelli trascorsi dall'inizio dell'esordio E e l'inizio dell'esordio E_succ.
+--? Effettuare il build a partire dal 1* Genaio 1995 e implementare il deferred refresh in modalità complete,
+--? con cadenza mensile. Progettare il LOG in modo da non effettuare accessi ai raw data.
+
+drop table if exists MV_STOMACO;
+create table MV_STOMACO(
+	Paziente char(50),
+    Patologia char(50),
+    DiffEprec integer,
+    DataEsordio date,
+    DiffEsucc integer,
+    primary key(Paziente, Patologia, DataEsordio)
+) Engine =  InnoDB default charset = latin1;
+
+insert into MV_STOMACO (
+	select D.Paziente, D.Patologia, datediff(D.DataEsordio, D.Eprec), D.DataEsordio, datediff(D.Esucc, D.DataEsordio)
+	from (
+		select E.Paziente, E.Patologia,
+			lag(E.DataEsordio, 1) over(partition by E.Paziente, E.Patologia order by E.DataEsordio) as Eprec,
+			E.DataEsordio, 
+			lead(E.DataEsordio, 1) over(partition by E.Paziente, E.Patologia order by E.DataEsordio) as Esucc
+		from Esordio E
+		where E.Patologia in (
+			select PA.Nome
+			from Patologia PA
+			where PA.ParteCorpo = 'Stomaco'
+		)
+			and year(E.DataEsordio) > 1994
+		order by E.Paziente, E.Patologia, E.DataEsordio
+	) as D
+	where D.Eprec is not null
+		and D.Esucc is not null
+	group by D.Paziente, D.Patologia, D.DataEsordio );
+    
+    
+drop procedure if exists update_MV_STOMACO;
+delimiter $$
+create procedure update_MV_STOMACO()
+begin
+	-- azzero la tabella
+	truncate MV_STOMACO;
+	
+    -- e la popolo from scratch
+	insert into MV_STOMACO (
+		select D.Paziente, D.Patologia, datediff(D.DataEsordio, D.Eprec), D.DataEsordio, datediff(D.Esucc, D.DataEsordio)
+		from (
+			select E.Paziente, E.Patologia,
+				lag(E.DataEsordio, 1) over(partition by E.Paziente, E.Patologia order by E.DataEsordio) as Eprec,
+				E.DataEsordio, 
+				lead(E.DataEsordio, 1) over(partition by E.Paziente, E.Patologia order by E.DataEsordio) as Esucc
+			from Esordio E
+			where E.Patologia in (
+				select PA.Nome
+				from Patologia PA
+				where PA.ParteCorpo = 'Stomaco'
+			)
+				and year(E.DataEsordio) > 1994
+			order by E.Paziente, E.Patologia, E.DataEsordio
+		) as D
+		where D.Eprec is not null
+			and D.Esucc is not null
+		group by D.Paziente, D.Patologia, D.DataEsordio );
+end $$
+
+create event update_MV_STOMACO_event
+every 1 month
+do
+	call update_MV_STOMACO();
+delimiter ;
+
+
+
