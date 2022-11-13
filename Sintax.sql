@@ -22,7 +22,7 @@ from Medico M1 left outer join (
     select *
     from ...
 ) as D on M1.Matricola = D.Medico
-where D.Qualcosa is null
+where M1.Qualcosa is null
 
 --! UPDATE
 -- aggiorna parcella di ogni medico con la media della sua spec
