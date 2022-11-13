@@ -81,7 +81,6 @@ SpecTarget as (
 		having count(distinct M.Matricola) > 1
 	)
 ),
-
 AnniMesiTarget as (
 	select year(V.Data) as Anno, month(V.Data) as Mese
 	from Visita V inner join Medico M on V.Medico = M.Matricola
@@ -104,17 +103,76 @@ where ST.Specializzazione is null
 --? e le durate mensili medie delle terapie dei due farmaci per tale patologia, calcolate 
 --? considerando i mesi in cui la condizione si è verificata.
 
+with TerapieTarget as (
+	select T.Patologia, T.Farmaco, month(T.DatainizioTerapia) as Mese, datediff(T.DataFineTerapia, T.DataInizioTerapia) as Durata
+	from Terapia T
+	where year(T.DataInizioTerapia) = 2013
+		and month(T.DataInizioTerapia) = month(T.DataFineTerapia)
+), 
+Confronto as (
+	select T1.Patologia, T1.Farmaco as Farmaco1, T1.Durata as Durata1, T2.Farmaco as Farmaco2, T2.Durata as Durata2
+	from TerapieTarget T1 inner join TerapieTarget T2 on T1.Patologia = T2.Patologia
+													  and T1.Farmaco <> T2.Farmaco
+													  and T1.Mese = T2.Mese
+	where T1.Durata < T2.Durata
+)
+
+select C.Patologia, C.Farmaco1, C.Farmaco2, avg(C.Durata1) as Media1, avg(C.Durata2) as Media2
+from Confronto C
+group by C.Patologia, C.Farmaco1, C.Farmaco2
+
 
 
 --? Scrivere una query che consideri le specializzazioni della clinica e il primo trimestre degli 
 --? ultimi 10 anni, e per ciascuna restituisca il nome della specializzazione, l’anno, e la 
 --? differenza percentuale fra l’incasso ottenuto nel primo trimestre di tale anno con le visite
 --? non mutuate e quelle realizzate nel primo trimestre dell’anno precedente.
---? fare con partition by???
+with
+Incasso as (
+	select year(V.Data) as Anno, M.Specializzazione, sum(M.Parcella) as IncassoTot
+	from Visita V inner join Medico M on V.Medico = M.Matricola
+	where month(V.Data) < 4
+        and V.Mutuata = 0
+	group by year(V.Data), M.Specializzazione
+)	
+																					-- Diff perc = (|x-y|/((x+y)/2))*100
+select I1.Specializzazione, I1.Anno, I1.IncassoTot, I2.Anno as AnnoPrec, I2.IncassoTot as IncassoPrec, ((I1.IncassoTot-I2.IncassoTot)/((I1.IncassoTot+I2.IncassoTot)/2))*100 as DiffPerc
+from Incasso I1 left outer join Incasso I2 on I1.Specializzazione = I2.Specializzazione
+									       and I1.Anno = I2.Anno + 1
+where I1.Anno >= year(current_date()) - 10
+order by I1.Specializzazione, I1.Anno
+
+
 --? Scrivere una query che consideri gli esordi di gastrite nei bimestri Febbraio-Marzo degli 
---? ultimi dieci anni, e restituisca in quali di questi anni più del 40% degli esordi del
+--? ultimi venti anni, e restituisca in quali di questi anni più del 40% degli esordi del
 --? bimestre Febbraio-marzo hanno riguardato, nel complesso, pazienti di Pisa e Roma, rispetto
 --? al totale degli esordi di gastrite dello stesso bimestre.
+with
+GastriteTot as (
+	select year(E.DataEsordio) as Anno, count(*) as NumEsordi
+	from Esordio E
+	where E.Patologia = 'Gastrite'
+		and month(E.DataEsordio) in ('2', '3')
+		and year(E.DataEsordio) > year(current_date()) - 20
+	group by year(E.DataEsordio)
+),
+GastriteCitta as (
+	select year(E.DataEsordio) as Anno, count(*) as NumEsordi
+	from Esordio E inner join Paziente P on E.Paziente = P.CodFiscale
+	where E.Patologia = 'Gastrite'
+		and month(E.DataEsordio) in ('2', '3')
+		and year(E.DataEsordio) > year(current_date()) - 20
+        and (P.Citta = 'Pisa' or P.Citta = 'Roma')
+	group by year(E.DataEsordio)
+)
+
+select G.Anno -- , G.NumEsordi as EsordiTot, GC.NumEsordi as EsordiTarget
+from GastriteTot G inner join GastriteCitta GC on G.Anno = GC.Anno
+where GC.NumEsordi > 0.4 * G.NumEsordi
+order by G.Anno
+
+
+
 
 
 --? Scrivere una stored procedure che sposti, in una tabella di archivio con stesso schema di
