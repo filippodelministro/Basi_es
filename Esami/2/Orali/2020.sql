@@ -172,13 +172,146 @@ where GC.NumEsordi > 0.4 * G.NumEsordi
 order by G.Anno
 
 
-
-
-
 --? Scrivere una stored procedure che sposti, in una tabella di archivio con stesso schema di
 --? Esordio, gli esordi di patologie gastriche conclusi con guarigione, relativi a pazienti che
 --? non hanno contratto, precedentemente all’esordio, patologie gastriche, ma che ne hanno
 --? curate con successo almeno due successivamente.
+drop table if exists ARCHIVIO_ESORDI;
+create table ARCHIVIO_ESORDI(
+	Paziente char(50),
+    Patologia char(50),
+    DataEsordio date,
+    DataGuarigione date,
+    Gravita int,
+    Cronica char(50),
+    EsordiPrecedenti int,
+	primary key(Paziente, Patologia, DataEsordio)
+)Engine = InnoDB default charset = latin1;
+
+drop procedure if exists sposta_ARCHIVIO_ESORDI;
+delimiter $$
+create procedure sposta_ARCHIVIO_ESORDI()
+begin 
+
+	-- inserisco i record target
+	insert into ARCHIVIO_ESORDI
+		select *
+		from Esordio E
+		where E.Patologia = 'Gastrite'
+			and E.DataGuarigione is not null
+			and not exists (		-- non esistono gastriti precedenti
+				select *
+				from Esordio E1
+				where E1.Paziente = E.Paziente
+					and E1.Patologia = 'Gastrite'
+					and E1.DataEsordio < E.DataEsordio
+			)
+			and exists (		-- ma esistono gastriti successive curate
+				select *
+				from Esordio E2
+				where E2.Paziente = E.Paziente
+					and E2.Patologia = 'Gastrite'
+					and E2.DataEsordio > E.DataEsordio
+					and E2.DataGuarigione is not null
+        );
+	
+    -- e gli elimino da Esordio
+    delete EE.*
+    from Esordio EE inner join (
+		select *
+		from Esordio E
+		where E.Patologia = 'Gastrite'
+			and E.DataGuarigione is not null
+			and not exists (		
+				select *
+				from Esordio E1
+				where E1.Paziente = E.Paziente
+					and E1.Patologia = 'Gastrite'
+					and E1.DataEsordio < E.DataEsordio
+			)
+			and exists (	drop table if exists ARCHIVIO_ESORDI;
+create table ARCHIVIO_ESORDI(
+	Paziente char(50),
+    Patologia char(50),
+    DataEsordio date,
+    DataGuarigione date,
+    Gravita int,
+    Cronica char(50),
+    EsordiPrecedenti int,
+	primary key(Paziente, Patologia, DataEsordio)
+)Engine = InnoDB default charset = latin1;
+
+drop procedure if exists sposta_ARCHIVIO_ESORDI;
+delimiter $$
+create procedure sposta_ARCHIVIO_ESORDI()
+begin 
+
+	-- inserisco i record target
+	insert into ARCHIVIO_ESORDI
+		select *
+		from Esordio E
+		where E.Patologia = 'Gastrite'
+			and E.DataGuarigione is not null
+			and not exists (		-- non esistono gastriti precedenti
+				select *
+				from Esordio E1
+				where E1.Paziente = E.Paziente
+					and E1.Patologia = 'Gastrite'
+					and E1.DataEsordio < E.DataEsordio
+			)
+			and exists (		-- ma esistono gastriti successive curate
+				select *
+				from Esordio E2
+				where E2.Paziente = E.Paziente
+					and E2.Patologia = 'Gastrite'
+					and E2.DataEsordio > E.DataEsordio
+					and E2.DataGuarigione is not null
+        );
+	
+    -- e gli elimino da Esordio
+    delete EE.*
+    from Esordio EE inner join (
+		select *
+		from Esordio E
+		where E.Patologia = 'Gastrite'
+			and E.DataGuarigione is not null
+			and not exists (		
+				select *
+				from Esordio E1
+				where E1.Paziente = E.Paziente
+					and E1.Patologia = 'Gastrite'
+					and E1.DataEsordio < E.DataEsordio
+			)
+			and exists (		-- ma esistono gastriti successive curate
+				select *
+				from Esordio E2
+				where E2.Paziente = E.Paziente
+					and E2.Patologia = 'Gastrite'
+					and E2.DataEsordio > E.DataEsordio
+					and E2.DataGuarigione is not null
+        )
+	) as D on EE.Paziente = D.Paziente
+		   and EE.Patologia = D.Patologia
+           and EE.DataEsordio = D.DataEsordio;
+end $$
+delimiter ;
+
+call sposta_ARCHIVIO_ESORDI();	-- ma esistono gastriti successive curate
+				select *
+				from Esordio E2
+				where E2.Paziente = E.Paziente
+					and E2.Patologia = 'Gastrite'
+					and E2.DataEsordio > E.DataEsordio
+					and E2.DataGuarigione is not null
+        )
+	) as D on EE.Paziente = D.Paziente
+		   and EE.Patologia = D.Patologia
+           and EE.DataEsordio = D.DataEsordio;
+end $$
+delimiter ;
+
+call sposta_ARCHIVIO_ESORDI();
+
 
 --? Considerato ogni medico (detto target) avente parcella superiore alla parcella media di
 --? almeno una specializzazione diversa dalla sua, scrivere una query che, per ciascuna 
@@ -187,6 +320,34 @@ order by G.Anno
 --? non mutuate nel mese scorso (rispetto ai medici della sua specializzazione), e il
 --? relativo incasso. In caso di pari merito, restituire tutti gli ex aequo.
 
+				
+-- ongni medico avente Parcella maggiore di una media delle parcella
+-- di altre Specializzazioni 
+with
+MediciTarget as (
+	select *		
+	from Medico M
+	where M.Parcella > any (
+		select avg(M1.Parcella)
+		from Medico M1
+		where M1.Specializzazione <> M.Specializzazione
+		group by M1.Matricola
+	)
+),
+VisiteTarget as (
+	select MT.Matricola, MT.Specializzazione, count(*) as NumVisite, Sum(MT.Parcella) as Incasso
+	from Medico M left outer join Visita V on V.Medico = M.Matricola
+				  inner join MediciTarget MT on V.Medico = MT.Matricola
+	where V.Mutuata = 0
+	group by MT.Matricola, MT.Specializzazione
+)
+select *
+from VisiteTarget VT
+where VT.NumVisite = (
+	select min(VT1.NumVisite)
+	from VisiteTarget VT1
+	where VT1.Specializzazione = VT.Specializzazione
+)
 
 
 --? Scrivere una query che restituisca la matricola e cognome dei cardiologi che, al 20 Ottobre
