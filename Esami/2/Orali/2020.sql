@@ -354,6 +354,40 @@ where VT.NumVisite = (
 --? 2010, avevano visitato tutti i pazienti di almeno una città dalla quale provenissero almeno
 --? due pazienti che al tempo erano under 60 e affetti da almeno una patologia cardiaca cronica.
 
+with
+CittaTarget as (
+	select distinct P.Citta
+	from Paziente P
+	where P.DataNascita < '2010-10-20' - interval 60 year
+		and exists (
+			select *
+			from Esordio E inner join Patologia PA on E.Patologia = PA.Nome
+			where E.Paziente = P.CodFiscale
+				and E.Cronica = 'si'
+				and PA.SettoreMedico = 'Cardiologia'
+		)
+	group by P.Citta
+    having count(distinct P.CodFiscale) > 1
+)
+
+select V.Medico
+from Visita V inner join Medico M on V.Medico = M.Matricola
+			  inner join Paziente P on V.Paziente = P.CodFiscale
+where M.Specializzazione = 'Cardiologia'
+group by V.Medico
+having exists (
+	select P1.Citta
+	from Visita V1 inner join Paziente P1 on V1.Paziente = P1.CodFiscale
+	where V1.Medico = V.Medico
+		and V1.Data < '2010-10-20'
+		and P1.Citta in (select * from CittaTarget)
+	group by P1.Citta
+	having count(distinct V1.Paziente) = (
+		select count(P2.CodFiscale)
+		from Paziente P2
+		where P2.Citta = P1.Citta
+	)
+)
     
     
 --? Scrivere una query che restituisca gli anni (target) in cui, nel trimestre Gennaio-Marzo,
