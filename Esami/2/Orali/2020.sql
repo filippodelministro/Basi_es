@@ -396,6 +396,63 @@ having exists (
 --? trimestre dell’anno precedente, e qual è stato il mese del trimestre che ha fatto
 --? registrare il maggior aumento in termini di persone contagiate, per ogni anno target.
 
+with
+Esordi as (
+	select year(E.DataEsordio) as Anno, E.Patologia, count(*) as NumEsordi
+	from Esordio E
+	-- where month(E.DataEsordio) < 4
+	group by year(E.DataEsordio), E.Patologia
+	order by year(E.DataEsordio), E.Patologia
+),
+EsordiDolore as (
+	select year(E.DataEsordio) as Anno, count(*) as NumEsordi
+	from Esordio E
+	where E.Patologia = 'Dolore'
+	group by year(E.DataEsordio)
+	order by year(E.DataEsordio)
+),
+AnniSingolaPat as (		-- anni in cui c'è una sola patologia target
+select E1.Anno
+from Esordi E1 inner join Esordi E2 on E1.Anno = E2.Anno + 1
+					 				and E1.Patologia = E2.Patologia
+where E1.NumEsordi > 1.1 * E2.NumEsordi
+group by E1.Anno
+having count(distinct E1.Patologia) = 1
+order by E1.Anno -- , E1.Patologia
+),
+AnniDolore as (			-- anni in cui Dolore è target
+	select ED1.Anno
+	from EsordiDolore ED1 inner join EsordiDolore ED2 on ED1.Anno = ED2.Anno + 1
+	where ED1.NumEsordi > 1.1 * ED2.NumEsordi
+),
+AnniTarget as (			-- join tra AnniSingolaPat e AnniDolore
+	select * 
+	from AnniSingolaPat ASP natural join AnniDolore AD
+),
+
+-- CTE per trovare il mese di maggior incidenza
+EsordiDoloreMese as (	-- numero di esordi del Dolore ogni mese
+	select year(E.DataEsordio) as Anno, month(E.DataEsordio) as Mese, count(*) as NumEsordi
+	from Esordio E
+	where E.Patologia = 'Dolore'
+	group by year(E.DataEsordio), month(E.DataEsordio)
+	order by year(E.DataEsordio)
+),
+MeseMaxEsordi as (		-- mese maggior incidenza per ogni anno
+select EDM1.Anno, EDM1.Mese, D.MaxEsordi
+from EsordiDoloreMese EDM1 inner join (
+	select EDM.Anno, max(EDM.NumEsordi) as MaxEsordi
+	from EsordiDoloreMese EDM
+	where EDM.NumEsordi
+	group by EDM.Anno
+) as D on EDM1.Anno = D.Anno
+where EDM1.NumEsordi = D.MaxEsordi
+)
+
+-- join tra MeseMaxEsordi e anni target
+select A.Anno, MME.Mese, MME.MaxEsordi
+from AnniTarget A inner join MeseMaxEsordi MME on A.Anno = MME.Anno
+
 
 
 --? Scrivere una query che restituisca le patologie che, in almeno due degli ultimi trenta
