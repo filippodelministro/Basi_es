@@ -454,13 +454,37 @@ select A.Anno, MME.Mese, MME.MaxEsordi
 from AnniTarget A inner join MeseMaxEsordi MME on A.Anno = MME.Anno
 
 
-
 --? Scrivere una query che restituisca le patologie che, in almeno due degli ultimi trenta
 --? anni, si sono manifestate almeno una volta in tutti i mesi del primo trimestre dell’
 --? anno, in almeno due pazienti.
+select DD.Patologia
+from (
+	select D.Anno, D.Patologia
+	from (
+		select year(E.DataEsordio) as Anno, month(E.DataEsordio) as Mese, E.Patologia
+		from Esordio E
+		where year(E.DataEsordio) > year(current_date()) - 30
+			and month(E.DataEsordio) < 4
+		group by year(E.DataEsordio), month(E.DataEsordio), E.Patologia
+		having count(distinct E.Paziente) > 1
+	) as D
+	group by D.Anno, D.Patologia
+	having count(distinct D.Mese) = 3
+) as DD
+group by DD.Patologia
+having count(DD.Anno) > 1
 
 
 --? Modificare le parcelle dei medici della cardiologia e dell’otorinolaringoiatria,
 --? facendo sı̀ che ogni medico abbia la parcella pari alla sua parcella attuale moltiplicata
 --? per (0.05*n), dove n è il numero di visite di pazienti provenienti dalla stessa città
 --? del medico, visitati negli ultimi trenta anni.
+update Medico M inner join (
+	select V.Medico, count(distinct V.Paziente) as NumPazienti
+	from Visita V inner join Medico M on V.Medico = M.Matricola
+				  inner join Paziente P on V.Paziente = P.CodFiscale
+	where M.Citta = P.Citta
+		and year(V.Data) > year(current_date()) - 30
+	group by V.Medico
+) as D on M.Matricola = D.Medico
+set M.Parcella = M.Parcella * 0.05 * D.NumPazienti
