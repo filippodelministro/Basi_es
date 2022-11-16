@@ -1,40 +1,32 @@
 -- DDL
 --! Insert
-insert into Medico values (...)
+insert into Tabella values(...)
 
-insert into Medico
-select *
-from -- [...]
-
---! Delete
-delete from Medico M
-where M.Specializzazione = '...'
-
-delete from Medico M
-where M.Matricola in (
+insert into Tabella (
     select *
-    from (
-        select *
-        from Medico M1
-    )as D
+    from ...
 )
 
-delete M1.* inner join (
+
+--! Delete
+-- tutti quelli che hanno un certo valore
+delete from Tabella
+where Valore in (
     select *
-    from Medico M
-    where -- [...]
-) on D.Matricola = M1.Matricola
-where D.Matricola is null
+    from AltraTabella       --NB non posso mettere la stessa Tab che ho nel from
+)
+
+-- tutti quelli che fanno join
+delete T1.*
+from Tabella T1 left outer join (
+    select *
+    from Tabella T2
+) as D on T1.Valore = T2.Valore
+where T1.Valore is null
 
 
 --! Update
-update M1.* inner join (
-    select *
-    from Medico M
-    where -- [...]
-) on D.Matricola = M1.Matricola
-where D.Matricola is null
-set M1.Parcella = D.Parcella
+
 
 
 -- DML

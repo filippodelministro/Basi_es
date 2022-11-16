@@ -25,7 +25,7 @@ from Medico M1 left outer join (
 where M1.Qualcosa is null
 
 --! UPDATE
--- aggiorna parcella di ogni medico con la media della sua spec
+-- aggiorna parcella di ogni medico con la media della sua specfinito 
 update Medico M inner join (
 		select M.Specializzazione, avg(M.Parcella) as Media
 		from Medico M
