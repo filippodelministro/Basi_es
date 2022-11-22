@@ -109,10 +109,121 @@ call rank_patologie('2000-01-01', 'Pisa')
 --? del paziente, il numero totale di medici da cui è stato visitato, e la spesa complessiva
 --? sostenuta per tali visite. Se mutuate, le visite hanno un costo di 38 Euro. Popolare 
 --? la materialized view e scrivere il codice per mantenerla in sync con i raw data.
+drop table if exists SpesaVisite;
+create table SpesaVisite(
+	Nome char(50),
+    Cognome char(50),
+    NumMedici int,
+    Spesa double
+)engine=InnoDB default charset = latin1;
+
+insert into SpesaVisite
+select P.Nome, P.Cognome, count(distinct V.Medico) as NumMedici, sum(if(V.Mutuata = 1, 38, M.Parcella)) as Spesa
+from Visita V inner join Medico M on V.Medico = M.Matricola
+			  inner join Paziente P on V.Paziente = P.CodFiscale
+group by V.Paziente
+having count(distinct M.Specializzazione) > 1 
+	and count(distinct M.Citta) = (
+		select count(distinct M1.Citta)
+		from Medico M1
+	);
+
+drop trigger if exists update_SpesaVisite;
+delimiter $$
+create trigger update_SpesaVisite
+after insert on Visita for each row
+begin
+	declare parcella int default 0;
+    set parcella = (
+		select if(V.Mutuata = 1, 38, M.Parcella)
+        from Visita V inner join Medico M on V.Medico = M.Matricola
+        where M.Matricola = new.Medico
+			and V.Data = new.Data
+    );
+    
+	update SpesaVisite SV1 inner join (
+		select P.Nome, P.Cognome
+        from Visita V inner join Paziente P on P.CodFiscale = V.Paziente
+		where V.Paziente = new.Paziente
+    ) as D on SV1.Nome = D.Nome
+		   and SV1.Cognome = D.Cognome
+	set SV1.Spesa = SV1.Spesa + parcella;
+
+end $$
+delimiter ;
 
 
 --? Scrivere una stored procedure che sposti, in una tabella di archivio con stesso schema
 --? di Esordio, gli esordi di patologie gastriche conclusi con guarigione, relativi a pazienti
 --? che non hanno contratto, precedentemente all'esordio, patologie gastriche, ma che ne
 --? hanno curate con successo almeno due successivamente.
+
+drop table if exists ArchivioEsordio;
+create table ArchivioEsordio(
+	Paziente char(50),
+    Patologia char(50),
+    DataEsordio date,
+    DataGuarigione date,
+    Gravita int,
+    Cronica char(50),
+    EsordiPrecedenti int
+)Engine=InnoDB default charset = latin1;
+
+-- drop procedure update_ArchivioEsordio;			-- sposta i record target da Esordio a ArchvioEsordio
+delimiter $$
+create procedure update_ArchivioEsordio()
+begin
+	insert into ArchivioEsordio
+	select E.*
+	from Esordio E inner join Patologia PA on E.Patologia = PA.Nome
+	where PA.SettoreMedico = 'Gastroenterologia'
+		and E.DataGuarigione is not null
+		and not exists (		-- non esistono Esordi gastrici precedenti
+			select *
+			from Esordio E1 inner join Patologia PA1 on E1.Patologia = PA1.Nome
+			where PA1.SettoreMedico = 'Gastroenterologia'
+				and E1.DataEsordio < E.DataEsordio
+				and E1.Paziente = E.Paziente
+		)
+		and exists (		-- Esistono 2 esordi gastrici guariti
+			select *
+			from Esordio E2 inner join Patologia PA2 on E2.Patologia = PA2.Nome
+			where PA2.SettoreMedico = 'Gastroenterologia'
+				and E2.DataEsordio > E.DataEsordio
+				and E2.Paziente = E.Paziente
+				and E2.DataGuarigione is not null
+				and exists (
+					select *
+					from Esordio E3 inner join Patologia PA3 on E3.Patologia = PA3.Nome
+					where PA3.SettoreMedico = 'Gastroenterologia'
+						and E3.DataEsordio > E.DataEsordio
+						and E3.Paziente = E.Paziente
+						and E3.DataGuarigione is not null
+				)
+		);
+
+	delete E1.*
+	from Esordio E1 left outer join (
+		select *
+		from ArchivioEsordio 
+	) as D on E1.Paziente = D.Paziente
+		   and E1.Patologia = D.Patologia
+		   and E1.DataEsordio = D.DataEsordio
+	where D.Paziente is not null;
+end $$
+
+-- primo build
+call update_ArchivioEsordio();
+
+-- ogni volta che si aggiorna Esordio si controlla se ci sono record
+-- target nuovi, e nel caso si aggiorna l'archvio 
+-- drop trigger if exists trigger_update_ArchivioEsordio;	
+create trigger trigger_update_ArchivioEsordio
+after update on Esordio for each row 
+begin
+	call update_ArchivioEsordio();
+end $$
+delimiter ;
+
+
 
