@@ -81,6 +81,28 @@ where D.CostoIp < 0.5 * D.CostoEff
 --? delle patologie, dove una patologia è in posizione tanto più alta quanto più è basso,
 --? in media fra i pazienti di città c, il numero di giorni impiegati per guarire da tutte
 --? le patologie (oggi concluse) dalle quali i pazienti di città c erano affetti in data d.
+drop procedure if exists rank_patologie;
+delimiter $$
+create procedure rank_patologie(
+	in dataSoglia date,
+    in citta char(50)
+)
+begin
+    select D.Patologia, rank() over(order by D.MediaDurata) as Classifica
+	from (
+		select E.Patologia, avg(datediff(E.DataGuarigione, E.DataEsordio)) as MediaDurata
+		from Esordio E inner join Paziente P on E.Paziente = P.CodFiscale
+		where E.DataEsordio < dataSoglia
+			and E.DataGuarigione > dataSoglia
+			and P.Citta = citta
+		group by E.Patologia
+	) as D;
+
+end $$
+delimiter ;
+
+call rank_patologie('2000-01-01', 'Pisa')
+
 
 --? Creare una materialized view SpesaVisite che, per ogni paziente visitato da almeno un
 --? medico di tutte le città, in almeno due specializzazioni, contenga il nome e cognome
